@@ -87,12 +87,6 @@ export default function Home() {
                 changeChannel={changeChannel}
                 playOffline={playOffline}
               />
-              <a
-                className={styles.link}
-                href="https://github.com/dispencerr/wordle-on-twitch"
-              >
-                Contribute on GitHub
-              </a>
             </>
           ) : (
             <span>Loading...</span>

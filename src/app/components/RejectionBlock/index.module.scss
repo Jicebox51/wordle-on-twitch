@@ -1,0 +1,34 @@
+@import "@/app/styles/mixins";
+
+.blockCont {
+  overflow-y: clip;
+}
+
+.block {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: varSize(15);
+  width: 100%;
+}
+
+.user {
+  font-weight: bold;
+  margin-right: varSize(10);
+  align-self: center;
+}
+
+.word {
+  display: flex;
+  align-items: center;
+}
+
+.scoreBonus {
+  position: absolute;
+  left: varSize(-50);
+  font-size: varSize(30);
+  font-weight: bold;
+  color: forestgreen;
+  opacity: 0;
+}

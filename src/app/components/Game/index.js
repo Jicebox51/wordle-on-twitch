@@ -5,6 +5,7 @@ import Scoreboard from "../Scoreboard";
 import Keyboard from "../Keyboard";
 import BigLetters from "../BigLetters";
 import WordBlock from "../WordBlock";
+import RejectionBlock from "../RejectionBlock";
 import EntryField from "../EntryField";
 import answerList from "@/app/data/5letters/solutionwords.json";
 import wordList from "@/app/data/5letters/words.json";
@@ -14,9 +15,12 @@ export default function Game(props) {
   const [getAnswer, setAnswer] = useState("");
   const [getChatMessages, setChatMessages] = useState([]);
   const [getGuessArray, setGuessArray] = useState([]);
+  const [getInvalidGuessArray, setInvalidGuessArray] = useState([]);
   const [getChatArray, setChatArray] = useState([]);
+  const [getInvalidChatArray, setInvalidChatArray] = useState([]);
   const [getAnswerStatus, setAnswerStatus] = useState([]);
   const [getLetterStatus, setLetterStatus] = useState({});
+  const [getInvalidLetterStatus, setInvalidLetterStatus] = useState({});
   const [getTimeoutStatus, setTimeoutStatus] = useState({});
   const [getUserScores, setUserScores] = useState({});
   const [isWordFound, setIsWordFound] = useState(false);
@@ -28,12 +32,35 @@ export default function Game(props) {
   const pointSound3 = new Audio("/sounds/coin.wav");
   const cardSound = new Audio("/sounds/card.wav");
   const winSound = new Audio("/sounds/success.wav");
+  // WIP PART
+  // TODO get that from URL you dumbass
+  const onlyUseAvailableLetters = true;
+  const [getDeniedYellowPositions, setDeniedYellowPositions] = useState({});
+  const onlyAllowNotTriedPositions = true;
+  const greenLettersHaveToBeUsedInPlace = true;
+  // Penalty could be either points removed and/or longer timeout
+  // Penalty could be increased on subsequent "mistakes"
+  const penaltyForNonExistingWords = false;
+  const penaltyForUsingRemovedLetter = false;
+  // All time scores and temp scores would be cool
+  // ["invalid word", ("length doesn't fit",) "already guessed", "green not right place", "use of a gone letter", 
+  //  {"yellow[letter]: position"} ]
 
   whooshSound.volume = 0.5;
   pointSound1.volume = 0.3;
   pointSound2.volume = 0.4;
   pointSound3.volume = 0.5;
   winSound.volume = 0.8;
+
+  const initializeDeniedYellowPositions = () => {
+    const tempDeniedYellowPositions = {};
+    const qwertyAlphabet = "qwertyuiopasdfghjklzxcvbnm";
+    for (let i = 0; i < qwertyAlphabet.length; i++) {
+      tempDeniedYellowPositions[qwertyAlphabet[i]] = [];
+    }
+    setDeniedYellowPositions(tempDeniedYellowPositions);
+    console.log('Init', getDeniedYellowPositions);
+  };
 
   const timeoutUser = (user) => {
     setTimeoutStatus((prevObject) => ({
@@ -71,6 +98,18 @@ export default function Game(props) {
     setLetterStatus(tempLetterStatus);
   };
 
+  // Reset the object keeping track of the letter status to all -1
+  const initializeInvalidLetterStatus = () => {
+    const qwertyAlphabet = "qwertyuiopasdfghjklzxcvbnm";
+    const tempInvalidLetterStatus = {};
+
+    for (let i = 0; i < qwertyAlphabet.length; i++) {
+      tempInvalidLetterStatus[qwertyAlphabet[i]] = 0;
+    }
+
+    setInvalidLetterStatus(tempInvalidLetterStatus);
+  };
+
   // Update the object keeping track of the status of each letter in the answer.
   // Used to update the big letter visual.
   // The "statusFromGuess" parameter is passed each time a word is added to the guess list,
@@ -93,12 +132,13 @@ export default function Game(props) {
   //-1 = unset (default state)
   // 0 = letter not in word
   // 1 = letter in wrong place
-  // 2 = letter in ccorrect place
+  // 2 = letter in correct place
   const updateLetterStatus = (statusObject, user) => {
     let scoreChange = 0;
 
     Object.keys(statusObject).forEach(function (letter) {
       if (getLetterStatus[letter] < statusObject[letter]) {
+
         let letterDifference = statusObject[letter] - getLetterStatus[letter];
         scoreChange += letterDifference;
         // console.log("Letter difference: " + letterDifference);
@@ -130,20 +170,24 @@ export default function Game(props) {
       newWord = answerList[Math.floor(Math.random() * answerList.length)];
     }
 
-    // console.log(newWord);
-    setAnswer(newWord);
+    console.log(newWord);
+    setAnswer('haste');
   };
 
   // Reset the game board (called when the word is solved)
   const reset = () => {
     setAnswerAsRandomWord();
     setGuessArray([]);
+    setInvalidGuessArray([]);
     setChatMessages([]);
     setChatArray([]);
+    setInvalidChatArray([]);
     initializeLetterStatus();
+    initializeInvalidLetterStatus();
     initializeAnswerStatus();
     setIsWordFound(false);
     setTimeoutStatus({});
+    initializeDeniedYellowPositions();
   };
 
   const isUserTimedOut = (user) => {
@@ -152,7 +196,6 @@ export default function Game(props) {
   };
 
   const handleValidGuess = (word, user, color) => {
-    // console.log(getGuessArray);
     setGuessArray((prevGuessArray) => [...prevGuessArray, word]);
     let newChatEntry = [word, user, color];
     // console.log(getChatArray);
@@ -160,27 +203,147 @@ export default function Game(props) {
     timeoutUser(user);
   };
 
+  const updateDeniedYellowPositions = (letter, position) => {
+    setDeniedYellowPositions(prevPositions => ({
+      ...prevPositions,
+      [letter]: [...prevPositions[letter], position]
+    }));
+  };
+
+  const updateInvalidLetterStatus = (letter, status) => {
+    // adding rejectionStatus
+    // 0=not rejected
+    // 1=letter gone but used(blue)
+    // 2=green not reused or in other spot(purple)
+    // 3=yellow not reused or reused in same spot(red)
+    setInvalidLetterStatus((prevObject) => ({
+      ...prevObject,
+      [letter]: status
+    }));
+    console.log('in update invalid letter: ', letter, status)
+  };
+
+  const handleInvalidGuess = (word, user, color) => {
+    setInvalidGuessArray((prevInvalidGuessArray) => [...prevInvalidGuessArray, word]);
+    let newChatEntry = [word, user, color];
+    // console.log(getChatArray);
+    setInvalidChatArray((prevInvalidChatArray) => [...prevInvalidChatArray, newChatEntry]);
+    timeoutUser(user);
+  }; // we now need to handle invalid guesses too to display them
+
   // Function called when a new word is guessed
   const handleWordEntry = (chat, user, color) => {
     let word = chat.trim(); //twitch adds white space to allow the broadcaster to repeat the same chat repeatedly it seems
+    let legitGuess = true;
     if (!isUserTimedOut(user)) {
+
       if (isWordFound) {
         return;
       } // word for this round has already been found
+
       if (word.length !== wordLength) {
         return;
       } // not the right length
+
       if (getGuessArray.includes(word)) {
+        handleInvalidGuess(word, user, color);
+        legitGuess = false;
         return;
       } // already guessed
+
       if (wordList.includes(word)) {
+
+        for (let i = 0; i < word.length; i++) {
+          var letter = word[i];
+          if (onlyUseAvailableLetters === true) {
+
+            if (getLetterStatus[word[i]] === 0) {
+              console.log('rejected by onlyUseAvailableLetters');
+              updateInvalidLetterStatus(letter, 1);
+              handleInvalidGuess(word, user, color);
+              legitGuess = false;
+              return;
+            } else {
+              updateInvalidLetterStatus(letter, 0);
+            };
+
+          } else {
+            updateInvalidLetterStatus(letter, 0)
+          };// only allow not tried letters in guess
+
+          if (greenLettersHaveToBeUsedInPlace === true) {
+
+            if (getLetterStatus[word[i]] !== 2 && getAnswerStatus[i] === true) {
+              console.log('rejected by greenLettersHaveToBeUsedInPlace');
+              updateInvalidLetterStatus(letter, 2);
+              handleInvalidGuess(word, user, color);
+              legitGuess = false;
+              return;
+            } else {
+              updateInvalidLetterStatus(letter, 0);
+            };
+
+          } else {
+            updateInvalidLetterStatus(letter, 0);
+          };// only allow guesses with green letters in at the right place
+
+          if (onlyAllowNotTriedPositions === true) {
+            console.log('from check', letter, getDeniedYellowPositions[letter]);
+            let tempArray = Array(word.length).fill(0);
+            let wordLetterArray = word.split("");
+            let answerLetterArray = getAnswer.split("");
+
+            //Loop through the letters and check if correct letter is in correct space
+            for (let i = 0; i < wordLetterArray.length; i++) {
+              if (wordLetterArray[i] === answerLetterArray[i]) {
+                tempArray[i] = 2;
+                answerLetterArray[i] = "-"; //Prevent further checks from counting this found letter
+              }
+            }
+
+            //Loop through the letters and check if the letter exists in other spaces
+            for (let i = 0; i < answerLetterArray.length; i++) {
+              let letterFound = false;
+              //Check other letters in answer
+              for (let j = 0; j < wordLetterArray.length && !letterFound; j++) {
+                if (wordLetterArray[i] === answerLetterArray[j] && tempArray[i] !== 2) {
+                  tempArray[i] = 1;
+                  answerLetterArray[j] = "-";
+                  letterFound = true;
+                }
+              }
+            }
+
+            if (getLetterStatus[letter] === 1 && getDeniedYellowPositions[letter].includes(i)) {
+              console.log('rejected by onlyAllowNotTriedPositions');
+              console.log('rejected cause of ', letter, i);
+              console.log('Invalid letters stuff: ', letter, getInvalidLetterStatus[letter]);
+              updateInvalidLetterStatus(letter, 3);
+              handleInvalidGuess(word, user, color);
+              legitGuess = false;
+              return;
+            }
+
+            if (tempArray[i] === 1 && legitGuess) {
+              updateDeniedYellowPositions(letter, i);
+              console.log('updating', letter, 'with position', i);
+              // handleInvalidGuess(word, user, color);
+            }
+            
+            // this has to be refactored to use getRejectionLetterStatus
+          } // only allow different position for yellows
+        }
+
         //If it's a valid word, add it the list of guesses so far
         handleValidGuess(word, user, color);
+        initializeInvalidLetterStatus();
       }
+
       if (word === getAnswer) {
         //If it's the correct answer, show and alert and reset the game board
         setIsWordFound(true); // prevent future guesses until the game has reset
         updateScores(user, wordLength); // give bonus points for getting the answer
+
         setTimeout(function () {
           reset();
         }, 4500);
@@ -242,6 +405,14 @@ export default function Game(props) {
   useEffect(() => {
     if (client) {
       client.on("message", (channel, tags, message, self) => {
+        if (message === '!reloadwordle' && '#' + tags.username === channel) {
+          location.reload();
+          return;
+        }
+        if (message === '!giveup' && '#' + tags.username === channel) {
+          reset();
+          return;
+        }
         addChatMessage(message, tags["display-name"], tags["color"]);
       });
     }
@@ -249,6 +420,8 @@ export default function Game(props) {
     setAnswerAsRandomWord();
     initializeAnswerStatus();
     initializeLetterStatus();
+    initializeInvalidLetterStatus();
+    initializeDeniedYellowPositions();
   }, []);
 
   useEffect(() => {
@@ -267,10 +440,26 @@ export default function Game(props) {
       <div className={styles.leftContainer}>
         <Scoreboard getUserScores={getUserScores} />
       </div>
+      <div className={styles.leftBottomContainer}>
+        {getInvalidChatArray.map((chatEntry, index) => (
+          <RejectionBlock
+            key={index}
+            word={chatEntry[0]}
+            user={chatEntry[1]}
+            color={chatEntry[2]}
+            answer={getAnswer}
+            // getLetterStatus={{getLetterStatus}}
+            getInvalidLetterStatus={getInvalidLetterStatus}
+            updateInvalidLetterStatus={updateInvalidLetterStatus}
+            updateAnswerStatus={updateAnswerStatus}
+          // playDeniedSound={playDeniedSound}
+          />
+        ))}
+      </div>
       <div className={styles.middleContainer}>
         <div className={styles.header}>
           <h1>Wordle on Twitch</h1>
-          <h2>https://wordle-on-twitch.vercel.app/</h2>
+          <h2>Let's make it harder, if we can...</h2>
         </div>
         <BigLetters
           answer={getAnswer}
@@ -308,3 +497,5 @@ export default function Game(props) {
     </div>
   );
 }
+
+// haste: adieu rebar exact tapes thema theme... broken
