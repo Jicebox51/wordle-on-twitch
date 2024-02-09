@@ -171,7 +171,7 @@ export default function Game(props) {
     }
 
     console.log(newWord);
-    setAnswer('haste');
+    setAnswer(newword);
   };
 
   // Reset the game board (called when the word is solved)
