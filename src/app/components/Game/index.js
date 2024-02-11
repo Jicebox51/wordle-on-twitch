@@ -34,6 +34,7 @@ export default function Game(props) {
   const winSound = new Audio("/sounds/success.wav");
   // WIP PART
   // TODO get that from URL you dumbass
+  const [getInvalidGuessesDisplayed, setInvalidGuessesDisplayed] = useState(-3);
   const onlyUseAvailableLetters = true;
   const [getDeniedYellowPositions, setDeniedYellowPositions] = useState({});
   const onlyAllowNotTriedPositions = true;
@@ -51,6 +52,12 @@ export default function Game(props) {
   pointSound2.volume = 0.4;
   pointSound3.volume = 0.5;
   winSound.volume = 0.8;
+
+  const updateInvalidGuessesDisplayed = (value) => {
+    if (!isNaN(value)) {
+      setInvalidGuessesDisplayed(value);
+    }
+  }
 
   const initializeDeniedYellowPositions = () => {
     const tempDeniedYellowPositions = {};
@@ -171,7 +178,7 @@ export default function Game(props) {
     }
 
     console.log(newWord);
-    setAnswer(newword);
+    setAnswer('haste');
   };
 
   // Reset the game board (called when the word is solved)
@@ -188,6 +195,7 @@ export default function Game(props) {
     setIsWordFound(false);
     setTimeoutStatus({});
     initializeDeniedYellowPositions();
+    updateInvalidGuessesDisplayed(value);
   };
 
   const isUserTimedOut = (user) => {
@@ -234,7 +242,7 @@ export default function Game(props) {
   // Function called when a new word is guessed
   const handleWordEntry = (chat, user, color) => {
     let word = chat.trim(); //twitch adds white space to allow the broadcaster to repeat the same chat repeatedly it seems
-    let legitGuess = true;
+    var legitGuess = true;
     if (!isUserTimedOut(user)) {
 
       if (isWordFound) {
@@ -324,7 +332,7 @@ export default function Game(props) {
               return;
             }
 
-            if (tempArray[i] === 1 && legitGuess) {
+            if (tempArray[i] === 1 && legitGuess === true) {
               updateDeniedYellowPositions(letter, i);
               console.log('updating', letter, 'with position', i);
               // handleInvalidGuess(word, user, color);
@@ -337,6 +345,10 @@ export default function Game(props) {
         //If it's a valid word, add it the list of guesses so far
         handleValidGuess(word, user, color);
         initializeInvalidLetterStatus();
+      } else {
+          
+        handleInvalidGuess(word, user, color);
+
       }
 
       if (word === getAnswer) {
@@ -413,6 +425,15 @@ export default function Game(props) {
           reset();
           return;
         }
+        if (message.startsWith('!setInvGuesses')) {
+          const args = message.split(' ');
+          const value = parseInt(args[1]);
+          console.log(args[1]);
+          if (!isNaN(value)) {
+            updateInvalidGuessesDisplayed(value);
+          }
+          return;
+        }
         addChatMessage(message, tags["display-name"], tags["color"]);
       });
     }
@@ -438,24 +459,27 @@ export default function Game(props) {
   return (
     <div className={styles.gameContainer}>
       <div className={styles.leftContainer}>
-        <Scoreboard getUserScores={getUserScores} />
+        <div className={styles.leftTopContainer}>
+          <Scoreboard getUserScores={getUserScores} />
+        </div>
+        <div className={styles.leftBottomContainer}>
+          {getInvalidChatArray.slice(getInvalidGuessesDisplayed).map((chatEntry, index) => (
+            <RejectionBlock
+              key={index}
+              word={chatEntry[0]}
+              user={chatEntry[1]}
+              color={chatEntry[2]}
+              answer={getAnswer}
+              // getLetterStatus={{getLetterStatus}}
+              getInvalidLetterStatus={getInvalidLetterStatus}
+              updateInvalidLetterStatus={updateInvalidLetterStatus}
+              updateAnswerStatus={updateAnswerStatus}
+            // playDeniedSound={playDeniedSound}
+            />
+          ))}
+        </div>
       </div>
-      <div className={styles.leftBottomContainer}>
-        {getInvalidChatArray.map((chatEntry, index) => (
-          <RejectionBlock
-            key={index}
-            word={chatEntry[0]}
-            user={chatEntry[1]}
-            color={chatEntry[2]}
-            answer={getAnswer}
-            // getLetterStatus={{getLetterStatus}}
-            getInvalidLetterStatus={getInvalidLetterStatus}
-            updateInvalidLetterStatus={updateInvalidLetterStatus}
-            updateAnswerStatus={updateAnswerStatus}
-          // playDeniedSound={playDeniedSound}
-          />
-        ))}
-      </div>
+
       <div className={styles.middleContainer}>
         <div className={styles.header}>
           <h1>Wordle on Twitch</h1>

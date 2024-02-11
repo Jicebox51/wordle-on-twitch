@@ -8,14 +8,22 @@
 }
 
 .leftContainer {
-  width: varSize(250);
-  display: flex;position: absolute;
+  width: varSize(475);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  // position: absolute;
+}
+
+.leftTopContainer {
+  width: varSize(475);
+  justify-content: flex-start;
+  align-items: left;
 }
 
 .leftBottomContainer {
   width: varSize(475);
-  display: flex;
-  flex-direction: column;
   justify-content: flex-end;
   align-items: left;
 }
