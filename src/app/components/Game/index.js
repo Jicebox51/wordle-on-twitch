@@ -41,6 +41,8 @@ export default function Game(props) {
   const greenLettersHaveToBeUsedInPlace = true;
   // Penalty could be either points removed and/or longer timeout
   // Penalty could be increased on subsequent "mistakes"
+  const [cooldown, setCooldown] = useState(false);
+  const cooldownDuration = 3000;
   const penaltyForNonExistingWords = false;
   const penaltyForUsingRemovedLetter = false;
   // All time scores and temp scores would be cool
@@ -66,22 +68,24 @@ export default function Game(props) {
       tempDeniedYellowPositions[qwertyAlphabet[i]] = [];
     }
     setDeniedYellowPositions(tempDeniedYellowPositions);
-    console.log('Init', getDeniedYellowPositions);
   };
 
-  const timeoutUser = (user) => {
+  const timeoutUser = (user, timeoutDuration) => {
+    if (!timeoutDuration) {
+      timeoutDuration = timeoutLength;
+    }
     setTimeoutStatus((prevObject) => ({
       ...prevObject,
       [user]: true,
     }));
-    // console.log('Timed out ' + user);
+    console.log('Timed out ' + user, 'for: ' + timeoutDuration);
     setTimeout(function () {
       setTimeoutStatus((prevObject) => ({
         ...prevObject,
         [user]: false,
       }));
-      // console.log('Untimed out ' + user);
-    }, timeoutLength);
+      console.log('Untimed out ' + user);
+    }, timeoutDuration);
   };
 
   // Reset the object keeping track of the answer status to all false
@@ -178,7 +182,7 @@ export default function Game(props) {
     }
 
     console.log(newWord);
-    setAnswer('haste');
+    setAnswer(newWord);
   };
 
   // Reset the game board (called when the word is solved)
@@ -195,7 +199,8 @@ export default function Game(props) {
     setIsWordFound(false);
     setTimeoutStatus({});
     initializeDeniedYellowPositions();
-    updateInvalidGuessesDisplayed(value);
+    updateInvalidGuessesDisplayed();
+    setCooldown(false);
   };
 
   const isUserTimedOut = (user) => {
@@ -228,7 +233,7 @@ export default function Game(props) {
       ...prevObject,
       [letter]: status
     }));
-    console.log('in update invalid letter: ', letter, status)
+    // console.log('in update invalid letter: ', letter, status)
   };
 
   const handleInvalidGuess = (word, user, color) => {
@@ -236,81 +241,83 @@ export default function Game(props) {
     let newChatEntry = [word, user, color];
     // console.log(getChatArray);
     setInvalidChatArray((prevInvalidChatArray) => [...prevInvalidChatArray, newChatEntry]);
-    timeoutUser(user);
+    timeoutUser(user, 30000);
   }; // we now need to handle invalid guesses too to display them
 
   // Function called when a new word is guessed
   const handleWordEntry = (chat, user, color) => {
-    let word = chat.trim(); //twitch adds white space to allow the broadcaster to repeat the same chat repeatedly it seems
+    var word = chat.trim(); //twitch adds white space to allow the broadcaster to repeat the same chat repeatedly it seems
     var legitGuess = true;
-    if (!isUserTimedOut(user)) {
+    console.log('new guess: ', word);
+    if (cooldown === false) {
+      if (!isUserTimedOut(user)) {
 
-      if (isWordFound) {
-        return;
-      } // word for this round has already been found
+        if (isWordFound) {
+          return;
+        } // word for this round has already been found
 
-      if (word.length !== wordLength) {
-        return;
-      } // not the right length
+        if (word.length !== wordLength) {
+          return;
+        } // not the right length
 
-      if (getGuessArray.includes(word)) {
-        handleInvalidGuess(word, user, color);
-        legitGuess = false;
-        return;
-      } // already guessed
+        if (getGuessArray.includes(word)) {
+          handleInvalidGuess(word, user, color);
+          legitGuess = false;
+          return;
+        } // already guessed
 
-      if (wordList.includes(word)) {
+        if (wordList.includes(word)) {
 
-        for (let i = 0; i < word.length; i++) {
-          var letter = word[i];
-          if (onlyUseAvailableLetters === true) {
+          for (let i = 0; i < word.length; i++) {
+            var letter = word[i];
+            if (onlyUseAvailableLetters === true) {
 
-            if (getLetterStatus[word[i]] === 0) {
-              console.log('rejected by onlyUseAvailableLetters');
-              updateInvalidLetterStatus(letter, 1);
-              handleInvalidGuess(word, user, color);
-              legitGuess = false;
-              return;
+              if (getLetterStatus[word[i]] === 0) {
+                console.log('rejected by onlyUseAvailableLetters');
+                updateInvalidLetterStatus(letter, 1);
+                handleInvalidGuess(word, user, color);
+                legitGuess = false;
+                return;
+              } else {
+                updateInvalidLetterStatus(letter, 0);
+              };
+
+            } else {
+              updateInvalidLetterStatus(letter, 0)
+            };// only allow not tried letters in guess
+
+            if (greenLettersHaveToBeUsedInPlace === true) {
+
+              if (getLetterStatus[word[i]] !== 2 && getAnswerStatus[i] === true) {
+                console.log('rejected by greenLettersHaveToBeUsedInPlace');
+                updateInvalidLetterStatus(letter, 2);
+                handleInvalidGuess(word, user, color);
+                legitGuess = false;
+                return;
+              } else {
+                updateInvalidLetterStatus(letter, 0);
+              };
+
             } else {
               updateInvalidLetterStatus(letter, 0);
-            };
+            };// only allow guesses with green letters in at the right place
 
-          } else {
-            updateInvalidLetterStatus(letter, 0)
-          };// only allow not tried letters in guess
+            if (onlyAllowNotTriedPositions === true) {
+              // console.log('from check', letter, getDeniedYellowPositions[letter]);
+              let tempArray = Array(word.length).fill(0);
+              let wordLetterArray = word.split("");
+              let answerLetterArray = getAnswer.split("");
 
-          if (greenLettersHaveToBeUsedInPlace === true) {
-
-            if (getLetterStatus[word[i]] !== 2 && getAnswerStatus[i] === true) {
-              console.log('rejected by greenLettersHaveToBeUsedInPlace');
-              updateInvalidLetterStatus(letter, 2);
-              handleInvalidGuess(word, user, color);
-              legitGuess = false;
-              return;
-            } else {
-              updateInvalidLetterStatus(letter, 0);
-            };
-
-          } else {
-            updateInvalidLetterStatus(letter, 0);
-          };// only allow guesses with green letters in at the right place
-
-          if (onlyAllowNotTriedPositions === true) {
-            console.log('from check', letter, getDeniedYellowPositions[letter]);
-            let tempArray = Array(word.length).fill(0);
-            let wordLetterArray = word.split("");
-            let answerLetterArray = getAnswer.split("");
-
-            //Loop through the letters and check if correct letter is in correct space
-            for (let i = 0; i < wordLetterArray.length; i++) {
+              //Loop through the letters and check if correct letter is in correct space
+              
               if (wordLetterArray[i] === answerLetterArray[i]) {
                 tempArray[i] = 2;
                 answerLetterArray[i] = "-"; //Prevent further checks from counting this found letter
               }
-            }
+              
 
-            //Loop through the letters and check if the letter exists in other spaces
-            for (let i = 0; i < answerLetterArray.length; i++) {
+              //Loop through the letters and check if the letter exists in other spaces
+              
               let letterFound = false;
               //Check other letters in answer
               for (let j = 0; j < wordLetterArray.length && !letterFound; j++) {
@@ -320,45 +327,53 @@ export default function Game(props) {
                   letterFound = true;
                 }
               }
-            }
+              
 
-            if (getLetterStatus[letter] === 1 && getDeniedYellowPositions[letter].includes(i)) {
-              console.log('rejected by onlyAllowNotTriedPositions');
-              console.log('rejected cause of ', letter, i);
-              console.log('Invalid letters stuff: ', letter, getInvalidLetterStatus[letter]);
-              updateInvalidLetterStatus(letter, 3);
-              handleInvalidGuess(word, user, color);
-              legitGuess = false;
-              return;
-            }
+              var tempVar = tempArray[i];
+              console.log('i: ', i, 'tempVar: ', tempVar);
 
-            if (tempArray[i] === 1 && legitGuess === true) {
-              updateDeniedYellowPositions(letter, i);
-              console.log('updating', letter, 'with position', i);
-              // handleInvalidGuess(word, user, color);
-            }
+              if ((getLetterStatus[letter] === 1 || tempVar === 1) && getDeniedYellowPositions[letter].includes(i)) {
+                console.log('rejected by onlyAllowNotTriedPositions');
+                console.log('rejected cause of ', letter, i);
+                console.log('Invalid letters stuff: ', letter, getInvalidLetterStatus[letter]);
+                updateInvalidLetterStatus(letter, 3);
+                handleInvalidGuess(word, user, color);
+                legitGuess = false;
+                console.log('legitGuess: ', legitGuess)
+                return;
+              } else if (legitGuess && tempVar === 1) {
+                updateDeniedYellowPositions(letter, i);
+                console.log('updating', letter, 'with position', i);
+                // handleInvalidGuess(word, user, color);
+              }
+              
+            } // only allow different position for yellows
+          }
+
+          //If it's a valid word, add it the list of guesses so far
+          handleValidGuess(word, user, color);
+          initializeInvalidLetterStatus();
+          setCooldown(true);
+          console.log('validGuess cooldown starting');
+          setTimeout(function () {
+          console.log('validGuess cooldown is over');
+          setCooldown(false);
+          }, cooldownDuration);
+        } else {
             
-            // this has to be refactored to use getRejectionLetterStatus
-          } // only allow different position for yellows
+          handleInvalidGuess(word, user, color);
+
+        } // show word not in db in left column
+
+        if (word === getAnswer) {
+          //If it's the correct answer, show and alert and reset the game board
+          setIsWordFound(true); // prevent future guesses until the game has reset
+          updateScores(user, wordLength); // give bonus points for getting the answer
+
+          setTimeout(function () {
+            reset();
+          }, 4500);
         }
-
-        //If it's a valid word, add it the list of guesses so far
-        handleValidGuess(word, user, color);
-        initializeInvalidLetterStatus();
-      } else {
-          
-        handleInvalidGuess(word, user, color);
-
-      }
-
-      if (word === getAnswer) {
-        //If it's the correct answer, show and alert and reset the game board
-        setIsWordFound(true); // prevent future guesses until the game has reset
-        updateScores(user, wordLength); // give bonus points for getting the answer
-
-        setTimeout(function () {
-          reset();
-        }, 4500);
       }
     }
   };
@@ -470,7 +485,6 @@ export default function Game(props) {
               user={chatEntry[1]}
               color={chatEntry[2]}
               answer={getAnswer}
-              // getLetterStatus={{getLetterStatus}}
               getInvalidLetterStatus={getInvalidLetterStatus}
               updateInvalidLetterStatus={updateInvalidLetterStatus}
               updateAnswerStatus={updateAnswerStatus}
