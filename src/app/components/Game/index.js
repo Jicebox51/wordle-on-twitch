@@ -42,7 +42,8 @@ export default function Game(props) {
   // Penalty could be either points removed and/or longer timeout
   // Penalty could be increased on subsequent "mistakes"
   const [cooldown, setCooldown] = useState(false);
-  const cooldownDuration = 10000;
+  const cooldownDuration = 3000;
+  const invalidGuessPenalty = 10000;
   const penaltyForNonExistingWords = false;
   const penaltyForUsingRemovedLetter = false;
   // All time scores and temp scores would be cool
@@ -241,7 +242,7 @@ export default function Game(props) {
     let newChatEntry = [word, user, color];
     // console.log(getChatArray);
     setInvalidChatArray((prevInvalidChatArray) => [...prevInvalidChatArray, newChatEntry]);
-    timeoutUser(user, 30000);
+    timeoutUser(user, invalidGuessPenalty);
   }; // we now need to handle invalid guesses too to display them
 
   // Function called when a new word is guessed
