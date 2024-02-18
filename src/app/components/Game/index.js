@@ -42,7 +42,7 @@ export default function Game(props) {
   // Penalty could be either points removed and/or longer timeout
   // Penalty could be increased on subsequent "mistakes"
   const [cooldown, setCooldown] = useState(false);
-  const cooldownDuration = 3000;
+  const cooldownDuration = 10000;
   const penaltyForNonExistingWords = false;
   const penaltyForUsingRemovedLetter = false;
   // All time scores and temp scores would be cool
@@ -249,6 +249,7 @@ export default function Game(props) {
     var word = chat.trim(); //twitch adds white space to allow the broadcaster to repeat the same chat repeatedly it seems
     var legitGuess = true;
     console.log('new guess: ', word);
+    console.log('too early for:' + user, 'cooldown: ' + cooldown);
     if (cooldown === false) {
       if (!isUserTimedOut(user)) {
 
@@ -267,6 +268,7 @@ export default function Game(props) {
         } // already guessed
 
         if (wordList.includes(word)) {
+          var tempDeniedPositionsToBeAdded = [];
 
           for (let i = 0; i < word.length; i++) {
             var letter = word[i];
@@ -326,11 +328,11 @@ export default function Game(props) {
                   answerLetterArray[j] = "-";
                   letterFound = true;
                 }
-              }
-              
+              }              
 
               var tempVar = tempArray[i];
               console.log('i: ', i, 'tempVar: ', tempVar);
+
 
               if ((getLetterStatus[letter] === 1 || tempVar === 1) && getDeniedYellowPositions[letter].includes(i)) {
                 console.log('rejected by onlyAllowNotTriedPositions');
@@ -339,12 +341,23 @@ export default function Game(props) {
                 updateInvalidLetterStatus(letter, 3);
                 handleInvalidGuess(word, user, color);
                 legitGuess = false;
-                console.log('legitGuess: ', legitGuess)
+                console.log('legitGuess: ', legitGuess);
                 return;
-              } else if (legitGuess && tempVar === 1) {
-                updateDeniedYellowPositions(letter, i);
-                console.log('updating', letter, 'with position', i);
-                // handleInvalidGuess(word, user, color);
+              } else if (getLetterStatus[letter] === 1 || tempVar === 1 && !getDeniedYellowPositions[letter].includes(i)) {
+                tempDeniedPositionsToBeAdded.push([letter, i]);
+              }
+
+              console.log('tempArray: ', tempArray);
+              console.log('tempDeniedPositionsToBeAdded', tempDeniedPositionsToBeAdded);
+
+              
+              if (wordLetterArray.length - 1 === i && !getDeniedYellowPositions[letter].includes(i)) {
+                if (tempDeniedPositionsToBeAdded.length > 0) {
+                  for (const [letter, pos] of tempDeniedPositionsToBeAdded) { 
+                    updateDeniedYellowPositions(letter, pos);
+                    console.log('updating', letter, 'with position', pos);
+                  }
+                }
               }
               
             } // only allow different position for yellows
