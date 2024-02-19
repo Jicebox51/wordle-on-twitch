@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import styles from "./index.module.scss";
 import WordLetter from "../WordLetter";
+import PenaltyTimer from "../PenaltyTimer";
 import { gsap } from "gsap";
 
 function RejectionBlock(props) {
@@ -152,9 +153,6 @@ function RejectionBlock(props) {
   return (
     <div className={styles.blockCont} ref={wordContRef}>
       <div className={styles.block}>
-        <span className={styles.user} style={{ color: adjustConstrast(color) }}>
-          {user.length <= 10 ? user : user.slice(0, 7) + "..."}
-        </span>
         <div className={styles.word} ref={wordRef}>
           {wordLetterArray.map((letter, index) => (
             <WordLetter
@@ -165,6 +163,10 @@ function RejectionBlock(props) {
             />
           ))}
         </div>
+        <PenaltyTimer invalidGuessPenalty={props.invalidGuessPenalty} />
+        <span className={styles.user} style={{ color: adjustConstrast(color) }}>
+          {user.length <= 10 ? user : user.slice(0, 7) + "..."}
+        </span>
       </div>
     </div>
   );

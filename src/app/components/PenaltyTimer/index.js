@@ -2,12 +2,12 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import styles from "./index.module.scss";
 
-function CooldownTimer(props) {
+function PenaltyTimer(props) {
   const timerCircleRef = useRef(null);
-  console.log('timeout from CooldownTimer: ', props.timeoutLength);
+  console.log('timeout from PenaltyTimer: ', props.invalidGuessPenalty);
 
   useEffect(() => {
-    function startCooldownTimer() {
+    function startPenaltyTimer() {
       const timerCircle = timerCircleRef.current;
 
       const tl = gsap.timeline();
@@ -15,7 +15,7 @@ function CooldownTimer(props) {
       // Animate the timer circle counterclockwise over three seconds
       tl.to(timerCircle, {
         "--p": "100",
-        duration: props.timeoutLength / 1000,
+        duration: props.invalidGuessPenalty / 1000,
         ease: "linear",
       });
       tl.to(timerCircle, {
@@ -30,10 +30,10 @@ function CooldownTimer(props) {
       });
     }
 
-    startCooldownTimer();
+    startPenaltyTimer();
   }, []);
 
-  return <div ref={timerCircleRef} className={styles.cooldownTimer}></div>;
+  return <div ref={timerCircleRef} className={styles.penaltyTimer}></div>;
 }
 
-export default CooldownTimer;
+export default PenaltyTimer;

@@ -502,6 +502,7 @@ export default function Game(props) {
               getInvalidLetterStatus={getInvalidLetterStatus}
               updateInvalidLetterStatus={updateInvalidLetterStatus}
               updateAnswerStatus={updateAnswerStatus}
+              invalidGuessPenalty={invalidGuessPenalty}
             // playDeniedSound={playDeniedSound}
             />
           ))}
@@ -510,7 +511,7 @@ export default function Game(props) {
 
       <div className={styles.middleContainer}>
         <div className={styles.header}>
-          <h1>Wordle on Twitch</h1>
+          <h1>Wordplop</h1>
           <h2>Let's make it harder, if we can...</h2>
         </div>
         <BigLetters
@@ -539,6 +540,7 @@ export default function Game(props) {
               updateAnswerStatus={updateAnswerStatus}
               playWinSound={playWinSound}
               playWhooshSound={playWhooshSound}
+              timeoutLength={timeoutLength}
             />
           ))}
         </div>

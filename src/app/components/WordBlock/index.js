@@ -184,7 +184,7 @@ function WordBlock(props) {
             +{solveBonus}
           </div>
         ) : (
-          <CooldownTimer />
+          <CooldownTimer timeoutLength={props.timeoutLength} />
         )}
         <span className={styles.user} style={{ color: adjustConstrast(color) }}>
           {user.length <= 10 ? user : user.slice(0, 7) + "..."}

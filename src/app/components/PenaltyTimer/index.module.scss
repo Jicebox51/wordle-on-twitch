@@ -1,0 +1,13 @@
+@import "@/app/styles/mixins";
+
+.penaltyTimer {
+  --p: 0;
+  --c: #bfbfbf;
+  width: varSize(30);
+  height: varSize(30);
+  position: absolute;
+  left: varSize(-50);
+  border-radius: 50%;
+  background: conic-gradient(var(--c) calc(var(--p) * 1%), #0000 0);
+  align-self: center;
+}
