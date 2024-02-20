@@ -163,10 +163,10 @@ function RejectionBlock(props) {
             />
           ))}
         </div>
-        <PenaltyTimer invalidGuessPenalty={props.invalidGuessPenalty} />
         <span className={styles.user} style={{ color: adjustConstrast(color) }}>
           {user.length <= 10 ? user : user.slice(0, 7) + "..."}
         </span>
+        <PenaltyTimer invalidGuessPenaltyInSeconds={props.invalidGuessPenaltyInSeconds} />
       </div>
     </div>
   );

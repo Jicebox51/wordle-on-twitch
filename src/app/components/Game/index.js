@@ -15,12 +15,9 @@ export default function Game(props) {
   const [getAnswer, setAnswer] = useState("");
   const [getChatMessages, setChatMessages] = useState([]);
   const [getGuessArray, setGuessArray] = useState([]);
-  const [getInvalidGuessArray, setInvalidGuessArray] = useState([]);
   const [getChatArray, setChatArray] = useState([]);
-  const [getInvalidChatArray, setInvalidChatArray] = useState([]);
   const [getAnswerStatus, setAnswerStatus] = useState([]);
   const [getLetterStatus, setLetterStatus] = useState({});
-  const [getInvalidLetterStatus, setInvalidLetterStatus] = useState({});
   const [getTimeoutStatus, setTimeoutStatus] = useState({});
   const [getUserScores, setUserScores] = useState({});
   const [isWordFound, setIsWordFound] = useState(false);
@@ -33,22 +30,32 @@ export default function Game(props) {
   const cardSound = new Audio("/sounds/card.wav");
   const winSound = new Audio("/sounds/success.wav");
   // WIP PART
-  // TODO get that from URL you dumbass
-  const [getInvalidGuessesDisplayed, setInvalidGuessesDisplayed] = useState(-3);
+  // TODO:
+  // Make a visual to show players the state of the global cooldown
+  // Get these settings from URL with a default value if not present in the URL:
   const onlyUseAvailableLetters = true;
-  const [getDeniedYellowPositions, setDeniedYellowPositions] = useState({});
   const onlyAllowNotTriedPositions = true;
   const greenLettersHaveToBeUsedInPlace = true;
-  // Penalty could be either points removed and/or longer timeout
-  // Penalty could be increased on subsequent "mistakes"
-  const [cooldown, setCooldown] = useState(false);
   const cooldownDuration = 3000;
   const invalidGuessPenalty = 10000;
   const penaltyForNonExistingWords = false;
   const penaltyForUsingRemovedLetter = false;
   // All time scores and temp scores would be cool
-  // ["invalid word", ("length doesn't fit",) "already guessed", "green not right place", "use of a gone letter", 
-  //  {"yellow[letter]: position"} ]
+  // Add a sound to play when guess is invalid
+  // Make it so yellow letters HAVE TO be reused
+  // Keep thinking about a way to increase difficulty on a per user basis
+  // Different penalties based on type of mistake?
+  // Penalty could be either points removed and/or longer timeout
+  // Penalty could be increased on subsequent "mistakes"
+  const [getInvalidGuessArray, setInvalidGuessArray] = useState([]);
+  const [getRejectionMessages, setRejectionMessages] = useState([]);
+  const [getInvalidChatArray, setInvalidChatArray] = useState([]);
+  const [getInvalidLetterStatus, setInvalidLetterStatus] = useState({});
+  const [getInvalidGuessesDisplayed, setInvalidGuessesDisplayed] = useState(-8);
+  const [getDeniedYellowPositions, setDeniedYellowPositions] = useState({});
+  const [cooldown, setCooldown] = useState(false);
+  const cooldownDurationInSeconds = cooldownDuration / 1000;
+  const invalidGuessPenaltyInSeconds = invalidGuessPenalty / 1000;
 
   whooshSound.volume = 0.5;
   pointSound1.volume = 0.3;
@@ -61,6 +68,11 @@ export default function Game(props) {
       setInvalidGuessesDisplayed(value);
     }
   }
+
+  const initializeRejectionMessages = () => {
+    const tempRejectionMessages = [];
+    setRejectionMessages(tempRejectionMessages);
+  };
 
   const initializeDeniedYellowPositions = () => {
     const tempDeniedYellowPositions = {};
@@ -79,13 +91,13 @@ export default function Game(props) {
       ...prevObject,
       [user]: true,
     }));
-    console.log('Timed out ' + user, 'for: ' + timeoutDuration);
+    // console.log('Timed out ' + user, 'for: ' + timeoutDuration);
     setTimeout(function () {
       setTimeoutStatus((prevObject) => ({
         ...prevObject,
         [user]: false,
       }));
-      console.log('Untimed out ' + user);
+      // console.log('Untimed out ' + user);
     }, timeoutDuration);
   };
 
@@ -202,6 +214,7 @@ export default function Game(props) {
     initializeDeniedYellowPositions();
     updateInvalidGuessesDisplayed();
     setCooldown(false);
+    initializeRejectionMessages();
   };
 
   const isUserTimedOut = (user) => {
@@ -248,9 +261,7 @@ export default function Game(props) {
   // Function called when a new word is guessed
   const handleWordEntry = (chat, user, color) => {
     var word = chat.trim(); //twitch adds white space to allow the broadcaster to repeat the same chat repeatedly it seems
-    var legitGuess = true;
     console.log('new guess: ', word);
-    console.log('too early for:' + user, 'cooldown: ' + cooldown);
     if (cooldown === false) {
       if (!isUserTimedOut(user)) {
 
@@ -264,7 +275,6 @@ export default function Game(props) {
 
         if (getGuessArray.includes(word)) {
           handleInvalidGuess(word, user, color);
-          legitGuess = false;
           return;
         } // already guessed
 
@@ -276,10 +286,12 @@ export default function Game(props) {
             if (onlyUseAvailableLetters === true) {
 
               if (getLetterStatus[word[i]] === 0) {
-                console.log('rejected by onlyUseAvailableLetters');
+                let uppercaseLetter = letter.toUpperCase();
+                let rejectionMessage = `${word}: Rejected by onlyUseAvailableLetters rule. ${uppercaseLetter} isn\'t present in word to find.`;
+                setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+                console.log(word, ': Rejected by onlyUseAvailableLetters rule.', letter.toUpperCase(), 'isn\'t present in word to find.');
                 updateInvalidLetterStatus(letter, 1);
                 handleInvalidGuess(word, user, color);
-                legitGuess = false;
                 return;
               } else {
                 updateInvalidLetterStatus(letter, 0);
@@ -292,10 +304,12 @@ export default function Game(props) {
             if (greenLettersHaveToBeUsedInPlace === true) {
 
               if (getLetterStatus[word[i]] !== 2 && getAnswerStatus[i] === true) {
+                let uppercaseLetter = letter.toUpperCase();
+                let rejectionMessage = `${word}: Rejected by greenLettersHaveToBeUsedInPlace rule. Use of ${uppercaseLetter} isn\'t allowed in position number ${i + 1}.`;
+                setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
                 console.log('rejected by greenLettersHaveToBeUsedInPlace');
                 updateInvalidLetterStatus(letter, 2);
                 handleInvalidGuess(word, user, color);
-                legitGuess = false;
                 return;
               } else {
                 updateInvalidLetterStatus(letter, 0);
@@ -332,17 +346,15 @@ export default function Game(props) {
               }              
 
               var tempVar = tempArray[i];
-              console.log('i: ', i, 'tempVar: ', tempVar);
-
 
               if ((getLetterStatus[letter] === 1 || tempVar === 1) && getDeniedYellowPositions[letter].includes(i)) {
-                console.log('rejected by onlyAllowNotTriedPositions');
-                console.log('rejected cause of ', letter, i);
-                console.log('Invalid letters stuff: ', letter, getInvalidLetterStatus[letter]);
+                console.log('Rejected by onlyAllowNotTriedPositions. Reason: ', letter, i);
+                let uppercaseLetter = letter.toUpperCase();
+                let rejectionMessage = `${word}: Rejected by onlyAllowNotTriedPositions rule. Use of ${uppercaseLetter} isn\'t allowed in position number ${i + 1}.`;
+                setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+                // console.log('Invalid letters stuff: ', letter, getInvalidLetterStatus[letter]);
                 updateInvalidLetterStatus(letter, 3);
                 handleInvalidGuess(word, user, color);
-                legitGuess = false;
-                console.log('legitGuess: ', legitGuess);
                 return;
               } else if (getLetterStatus[letter] === 1 || tempVar === 1 && !getDeniedYellowPositions[letter].includes(i)) {
                 tempDeniedPositionsToBeAdded.push([letter, i]);
@@ -368,14 +380,16 @@ export default function Game(props) {
           handleValidGuess(word, user, color);
           initializeInvalidLetterStatus();
           setCooldown(true);
-          console.log('validGuess cooldown starting');
+          // console.log('validGuess cooldown starting');
           setTimeout(function () {
-          console.log('validGuess cooldown is over');
+          // console.log('validGuess cooldown is over');
           setCooldown(false);
           }, cooldownDuration);
         } else {
             
           handleInvalidGuess(word, user, color);
+          let rejectionMessage = `${word}: Rejected by MUST BE a word from the list rule.`;
+          setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
 
         } // show word not in db in left column
 
@@ -443,6 +457,9 @@ export default function Game(props) {
     ]);
   };
 
+  const [getShowDebug, setShowDebug] =useState(false);
+  const [getShowSettings, setShowSettings] =useState(false);
+
   useEffect(() => {
     if (client) {
       client.on("message", (channel, tags, message, self) => {
@@ -454,10 +471,26 @@ export default function Game(props) {
           reset();
           return;
         }
+        if (message === '!showdebug' && '#' + tags.username === channel) {
+          setShowDebug(true);
+          return;
+        }
+        if (message === '!hidedebug' && '#' + tags.username === channel) {
+          setShowDebug(false);
+          return;
+        }
+        if (message === '!showsettings' && '#' + tags.username === channel) {
+          setShowSettings(true);
+          return;
+        }
+        if (message === '!hidesettings' && '#' + tags.username === channel) {
+          setShowSettings(false);
+          return;
+        }
         if (message.startsWith('!setInvGuesses')) {
           const args = message.split(' ');
           const value = parseInt(args[1]);
-          console.log(args[1]);
+          // console.log(args[1]);
           if (!isNaN(value)) {
             updateInvalidGuessesDisplayed(value);
           }
@@ -472,6 +505,7 @@ export default function Game(props) {
     initializeLetterStatus();
     initializeInvalidLetterStatus();
     initializeDeniedYellowPositions();
+    initializeRejectionMessages();
   }, []);
 
   useEffect(() => {
@@ -484,6 +518,10 @@ export default function Game(props) {
       );
     }
   }, [getChatMessages]);
+
+  useEffect(() => {
+    console.log(getRejectionMessages);
+  }, [getRejectionMessages]);
 
   return (
     <div className={styles.gameContainer}>
@@ -502,7 +540,7 @@ export default function Game(props) {
               getInvalidLetterStatus={getInvalidLetterStatus}
               updateInvalidLetterStatus={updateInvalidLetterStatus}
               updateAnswerStatus={updateAnswerStatus}
-              invalidGuessPenalty={invalidGuessPenalty}
+              invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
             // playDeniedSound={playDeniedSound}
             />
           ))}
@@ -526,6 +564,37 @@ export default function Game(props) {
           playPoint2Sound={playPoint2Sound}
           playPoint3Sound={playPoint3Sound}
         />
+        {getShowSettings && (
+          <div>
+            <div className={styles.gameSettings}>
+              <h2>Game Settings</h2>
+            </div>
+            <div className={styles.settingsInfos}>
+              <ul>
+                <li>Cooldown duration: {cooldownDurationInSeconds} seconds</li>
+                <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} seconds</li>
+                <li>Only use available letters: {onlyUseAvailableLetters.toString()}</li>
+                <li>Green letters must be reused in place: {greenLettersHaveToBeUsedInPlace.toString()}</li>
+                <li>Yellow letter must be tried in new position: {onlyAllowNotTriedPositions.toString()}</li>
+              </ul>
+            </div>
+          </div>
+        )}
+        {getShowDebug && (
+          <div>
+            <div className={styles.debugMessagesTitle}>
+              <h2>Debug part</h2>
+            </div>
+            <div className={styles.debugMessages}>
+              <ul>
+                {/* Maybe make the -5 a variable at some point */}
+                {getRejectionMessages.slice(-5).map((message, index) => (
+                  <li key={index}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
       <div className={styles.rightContainer}>
         <div className={styles.wordBlockContainer}>

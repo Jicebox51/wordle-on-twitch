@@ -7,14 +7,15 @@
 .block {
   position: relative;
   display: flex;
-  justify-content: space-between;
-  align-items: left;
+  // justify-content: space-between;
+  align-items: center;
   padding-top: varSize(15);
   width: 100%;
 }
 
 .user {
   font-weight: bold;
+  margin-left: varSize(10);
   margin-right: varSize(10);
   align-self: center;
 }

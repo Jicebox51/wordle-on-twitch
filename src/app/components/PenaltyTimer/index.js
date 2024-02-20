@@ -4,7 +4,6 @@ import styles from "./index.module.scss";
 
 function PenaltyTimer(props) {
   const timerCircleRef = useRef(null);
-  console.log('timeout from PenaltyTimer: ', props.invalidGuessPenalty);
 
   useEffect(() => {
     function startPenaltyTimer() {
@@ -15,7 +14,7 @@ function PenaltyTimer(props) {
       // Animate the timer circle counterclockwise over three seconds
       tl.to(timerCircle, {
         "--p": "100",
-        duration: props.invalidGuessPenalty / 1000,
+        duration: props.invalidGuessPenaltyInSeconds,
         ease: "linear",
       });
       tl.to(timerCircle, {

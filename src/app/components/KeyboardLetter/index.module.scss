@@ -28,8 +28,10 @@ $size2: varSize(60);
 @import "@/app/styles/mixins";
 
 .black {
-  color: black;
+  color: rgb(255, 0, 0);
   background-color: rgb(17, 17, 17);
+  // border-width: 1px;
+  border-color: rgb(255, 0, 0);
 }
 
 .score {

@@ -4,7 +4,6 @@ import styles from "./index.module.scss";
 
 function CooldownTimer(props) {
   const timerCircleRef = useRef(null);
-  console.log('timeout from CooldownTimer: ', props.timeoutLength);
 
   useEffect(() => {
     function startCooldownTimer() {
