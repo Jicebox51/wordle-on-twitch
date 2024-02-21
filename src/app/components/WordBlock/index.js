@@ -12,6 +12,7 @@ function WordBlock(props) {
     answer,
     updateLetterStatus,
     updateAnswerStatus,
+    updateMandatoryYellowLetters,
     playWinSound,
     playWhooshSound,
   } = props;
@@ -90,6 +91,8 @@ function WordBlock(props) {
       for (let j = 0; j < wordLetterArray.length && !letterFound; j++) {
         if (wordLetterArray[i] === answerCheckArray[j] && tempArray[i] !== 2) {
           tempArray[i] = 1;
+          updateMandatoryYellowLetters(word[i]);
+          console.log('Adding ', word[i], 'to the mandatory yellow letters array.');
           answerCheckArray[j] = "-";
           letterFound = true;
         }
