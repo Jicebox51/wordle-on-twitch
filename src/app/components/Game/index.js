@@ -772,51 +772,71 @@ export default function Game(props) {
       const storedShowDebug = localStorage.getItem('showDebug');
       if (storedShowDebug !== null) {
         setShowDebug(JSON.parse(storedShowDebug));
+      } else {
+        setShowDebug(false);
       }
 
       const storedShowSettings = localStorage.getItem('showSettings');
       if (storedShowSettings !== null) {
         setShowSettings(JSON.parse(storedShowSettings));
+      } else {
+        setShowSettings(false);
       }
 
       const storedSecretSetting = localStorage.getItem('secretSetting');
       if (storedShowSettings !== null) {
         updateSecretSetting(JSON.parse(storedSecretSetting));
+      } else {
+        updateSecretSetting(false);
       }
 
       const storedShowScoreboard = localStorage.getItem('showScoreboard');
       if (storedShowScoreboard !== null) {
         updateShowScoreboard(JSON.parse(storedShowScoreboard));
+      } else {
+        updateShowScoreboard(false);
       }
 
       const storedOnlyUseAvailableLetters = localStorage.getItem('onlyUseAvailableLetters');
       if (storedOnlyUseAvailableLetters !== null) {
         updateOnlyUseAvailableLetters(JSON.parse(storedOnlyUseAvailableLetters));
+      } else {
+        updateOnlyUseAvailableLetters(true);
       }
 
       const storedOnlyAllowNotTriedPositions = localStorage.getItem('onlyAllowNotTriedPositions');
       if (storedOnlyAllowNotTriedPositions !== null) {
         updateOnlyAllowNotTriedPositions(JSON.parse(storedOnlyAllowNotTriedPositions));
+      } else {
+        updateOnlyAllowNotTriedPositions(true);
       }
 
       const storedGreenLettersHaveToBeUsedInPlace = localStorage.getItem('greenLettersHaveToBeUsedInPlace');
       if (storedGreenLettersHaveToBeUsedInPlace !== null) {
         updateGreenLettersHaveToBeUsedInPlace(JSON.parse(storedGreenLettersHaveToBeUsedInPlace));
+      } else {
+        updateGreenLettersHaveToBeUsedInPlace(true);
       }
 
       const storedAllYellowLettersHaveToBeReused = localStorage.getItem('allYellowLettersHaveToBeReused');
       if (storedAllYellowLettersHaveToBeReused !== null) {
         updateAllYellowLettersHaveToBeReused(JSON.parse(storedAllYellowLettersHaveToBeReused));
+      } else {
+        updateAllYellowLettersHaveToBeReused(true);
       }
 
       const storedCooldownDuration = localStorage.getItem('cooldownDuration');
       if (storedCooldownDuration !== null) {
         updateCooldownDuration(JSON.parse(storedCooldownDuration));
+      } else {
+        updateCooldownDuration(1000);
       }
 
       const storedInvalidGuessPenalty = localStorage.getItem('invalidGuessPenalty');
       if (storedInvalidGuessPenalty !== null) {
         updateInvalidGuessPenalty(JSON.parse(storedInvalidGuessPenalty));
+      } else {
+        updateInvalidGuessPenalty(10000);
       }
     }
     readLocalStorage();
