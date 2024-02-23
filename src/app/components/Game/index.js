@@ -46,6 +46,7 @@ export default function Game(props) {
   // TODO:
 
   // All time scores and temp scores would be cool
+  // add message for guess during timeout/cooldown in debug panel
 
   // Make a visual to show players the state of the global cooldown
   // Get these settings from URL with a default value if not present in the URL:
@@ -784,7 +785,7 @@ export default function Game(props) {
       }
 
       const storedSecretSetting = localStorage.getItem('secretSetting');
-      if (storedShowSettings !== null) {
+      if (storedSecretSetting !== null) {
         updateSecretSetting(JSON.parse(storedSecretSetting));
       } else {
         updateSecretSetting(false);
