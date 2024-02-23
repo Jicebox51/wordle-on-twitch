@@ -784,7 +784,7 @@ export default function Game(props) {
         updateSecretSetting(JSON.parse(storedSecretSetting));
       }
 
-      const storedShowScoreboard = localStorage.getItem('secretSetting');
+      const storedShowScoreboard = localStorage.getItem('showScoreboard');
       if (storedShowScoreboard !== null) {
         updateShowScoreboard(JSON.parse(storedShowScoreboard));
       }
