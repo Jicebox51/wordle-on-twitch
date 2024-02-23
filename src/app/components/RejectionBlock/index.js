@@ -12,8 +12,15 @@ function RejectionBlock(props) {
     answer,
     updateInvalidLetterStatus,
     getInvalidLetterStatus,
-    playWinSound,
-    playWhooshSound,
+    playNopeSoundM,
+    playNopeSoundF,
+    playFailSound,
+    playBsSound1,
+    playBsSound2,
+    playBsSound3,
+    playBsSound4,
+    getErrorType,
+    getSecretSetting,
   } = props;
   const [getRejectionStatusArray, setRejectionStatusArray] = useState(Array(word.length).fill(0));
   const answerLetterArray = answer.split("");
@@ -74,37 +81,25 @@ function RejectionBlock(props) {
   const initRejectionStatusArray = () => {
     let tempArray = Array(word.length).fill(0);
     let firstCatch = false;
-    console.log('attempt to read getInvalidLetterStatus from game index.js: ', getInvalidLetterStatus['e']);
+    // console.log('attempt to read getInvalidLetterStatus from game index.js: ', getInvalidLetterStatus['e']);
 
     for (let i = 0; i < wordLetterArray.length; i++) {
-        if (firstCatch === false) {
-            console.log('wordLetterArray[i]: ', wordLetterArray[i]);
-            tempArray[i] = getInvalidLetterStatus[wordLetterArray[i]];
-            console.log('getInvalidLetterStatus[wordLetterArray[i]]: ', getInvalidLetterStatus[wordLetterArray[i]]);
+      if (firstCatch === false) {
+        console.log('wordLetterArray['+ i+ ']: '+ wordLetterArray[i]);
+        tempArray[i] = getInvalidLetterStatus[wordLetterArray[i]];
+        // console.log('getInvalidLetterStatus[wordLetterArray[i]]: ', getInvalidLetterStatus[wordLetterArray[i]]);
 
-          if (getInvalidLetterStatus[wordLetterArray[i]] !== 0) {
-            firstCatch = true;
-          };
+        if (getInvalidLetterStatus[wordLetterArray[i]] !== 0) {
+          firstCatch = true;
         };
+      };
     }
     setRejectionStatusArray([...tempArray]);
   };
 
-  const animateScoreBonus = () => {
-    let scoreBonus = scoreBonusRef.current;
-    if (scoreBonus) {
-      let tl = gsap.timeline();
-      tl.fromTo(scoreBonus, { opacity: 0 }, { opacity: 0, duration: 1.5 });
-      tl.fromTo(
-        scoreBonus,
-        { opacity: 1, y: 0 },
-        { opacity: 0, y: -30, ease: "linear", duration: 1.5 }
-      );
-    }
-  };
-
   const animateWordEntry = () => {
     let wordCont = wordContRef.current;
+    // console.log('getErrorType from rejectionBlock:', getErrorType);
     if (wordCont) {
       gsap.fromTo(
         wordCont,
@@ -113,34 +108,50 @@ function RejectionBlock(props) {
           maxHeight: 80,
           ease: "linear",
           duration: 0.5,
-          onStart: playWhooshSound,
-        }
-      );
-    }
-  };
+          onStart: () => {
+            switch (getErrorType) {
 
-  const animateLettersOnWin = () => {
-    let word = wordRef.current;
-    let wordCont = wordContRef.current;
-    if (word && word.children && wordCont) {
-      let letters = word.children;
-      let tl = gsap.timeline();
-      tl.fromTo(letters, { y: 0 }, { y: 0, duration: 1.5 });
-      tl.fromTo(
-        letters,
-        { y: 0 },
-        {
-          y: -15,
-          ease: "power2",
-          duration: 0.45,
-          stagger: 0.15,
-          onStart: playWinSound,
+              case 0:
+                if (getSecretSetting) {
+                  playBsSound4();
+                  break;
+                } else {
+                  playFailSound();
+                  break;
+                } // Fail: Word not in the list
+
+              case 1:
+                if (getSecretSetting) {
+                  playNopeSoundM();
+                  break;
+                } else {
+                  playFailSound();
+                  break;
+                } // Fail: use of gone letter
+
+              case 2:
+                if (getSecretSetting) {
+                  playNopeSoundF();
+                  break;
+                } else {
+                  playFailSound();
+                  break;
+                } // Fail: green letter not reused
+
+              case 3:
+                playFailSound();
+                break; // Fail: yellow letter reused same place
+
+              case 4:
+                playFailSound();
+                break; // Fail: yellow letters not all reused
+
+              default:               
+                playFailSound();
+                break; // Default sound or error handling
+            }
+          },
         }
-      );
-      tl.fromTo(
-        letters,
-        { y: -15 },
-        { y: 0, ease: "power2", duration: 0.25, stagger: 0.15, delay: -0.8 }
       );
     }
   };
