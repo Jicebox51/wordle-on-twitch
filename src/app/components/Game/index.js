@@ -14,14 +14,15 @@ import { parseArgs } from "util";
 export default function Game(props) {
   const { client } = props;
   const [getAnswer, setAnswer] = useState("");
-  const getAnswerGiveup= getAnswer;
+  const getAnswerGiveup = getAnswer;
   const [getChatMessages, setChatMessages] = useState([]);
   const [getGuessArray, setGuessArray] = useState([]);
   const [getChatArray, setChatArray] = useState([]);
   const [getAnswerStatus, setAnswerStatus] = useState([]);
   const [getLetterStatus, setLetterStatus] = useState({});
   const [getTimeoutStatus, setTimeoutStatus] = useState({});
-  const [getUserScores, setUserScores] = useState({});
+  const [getUserSessionScores, setUserSessionScores] = useState({});
+  const [getUserAllTimesScores, setUserAllTimesScores] = useState({});
   const [isWordFound, setIsWordFound] = useState(false);
   const wordLength = 5;
   const timeoutLength = 3000;
@@ -47,7 +48,6 @@ export default function Game(props) {
   // TODO:
 
   // All time scores and temp scores would be cool
-  // add message for guess during timeout/cooldown in debug panel
 
   // Make a visual to show players the state of the global cooldown
   // Get these settings from URL with a default value if not present in the URL:
@@ -59,11 +59,13 @@ export default function Game(props) {
   const [invalidGuessPenalty, setInvalidGuessPenalty] = useState(10000);
   const penaltyForNonExistingWords = false;
   const penaltyForUsingRemovedLetter = false;
-  // Add a sound to play when guess is invalid
+  // Make sound to play when guess is invalid random from a list
   // Keep thinking about a way to increase difficulty on a per user basis
   // Different penalties based on type of mistake?
   // Penalty could be either points removed and/or longer timeout
   // Penalty could be increased on subsequent "mistakes"
+  // Modify settings and debug panels to be just panels and display dynamic stuff in there
+  // like settings could become last x answers on a timer then back to settings or display yet something else
 
   // if you're feeling really evil, make it exponentially increase the timeout if someone does a guess during their timeout
   const [getMandatoryYellowLetters, setMandatoryYellowLetters] = useState([]);
@@ -77,8 +79,8 @@ export default function Game(props) {
   const cooldownDurationInSeconds = cooldownDuration / 1000;
   const invalidGuessPenaltyInSeconds = invalidGuessPenalty / 1000;
   
-
-  const giveupAnswer = getAnswer;
+  const [getPreviousAnswer, setPreviousAnswer] = useState('');
+  const [getDefinition, setDefinition] = useState('');
 
   whooshSound.volume = 0.5;
   pointSound1.volume = 0.3;
@@ -210,13 +212,21 @@ export default function Game(props) {
   };
 
   const updateScores = (user, scoreChange) => {
-    let currentScore = getUserScores[user] || 0;
-    let newScore = currentScore + scoreChange;
+    let currentSessionScore = getUserSessionScores[user] || 0;
+    let newSessionScore = currentSessionScore + scoreChange;
+    let currentAllTimesScore = getUserAllTimesScores[user] || 0;
+    let newAllTimesScore = currentAllTimesScore + scoreChange;
     // console.log(user + "'s new score: " + newScore);
-    setUserScores((prevObject) => ({
-      ...prevObject,
-      [user]: newScore,
+    setUserSessionScores((prevSessionObject) => ({
+      ...prevSessionObject,
+      [user]: newSessionScore,
     }));
+    localStorage.setItem(`sessionScore_${user}`, newSessionScore.toString());
+    setUserAllTimesScores((prevAllTimesObject) => ({
+      ...prevAllTimesObject,
+      [user]: newAllTimesScore,
+    }));
+    localStorage.setItem(`allTimesScore_${user}`, newAllTimesScore.toString());
   };
 
   // Set the answer to a new random word from the list
@@ -275,10 +285,10 @@ export default function Game(props) {
 
   const updateMandatoryYellowLetters = (letter) => {
     setMandatoryYellowLetters(prevLetters => {
-      if (!prevLetters.includes(letter)) {
-        return [...prevLetters, letter];
-      }
-      return prevLetters;
+      // if (!prevLetters.includes(letter)) {
+      return [...prevLetters, letter];
+      // }
+      // return prevLetters;
     });
   };
 
@@ -338,10 +348,12 @@ export default function Game(props) {
   // console.log('before function:', 'getAnswer:', getAnswer);
 
   const handleGiveAnswer = () => {
-    console.log('tests:', getAnswer, 'Wordplop', '#B22222');    
-    console.log('inside function:', 'getAnswer:', getAnswer);  
+    console.log('tests:', getAnswer, 'Wordplop', '#B22222');
+    console.log('inside function:', 'getAnswer:', getAnswer);
     addChatMessage(getAnswer, 'Wordplop', '#B22222');
   };
+
+  console.log('Mandatory letters array:', getMandatoryYellowLetters);
 
   // Function called when a new word is guessed
   const handleWordEntry = (chat, user, color) => {
@@ -379,9 +391,11 @@ export default function Game(props) {
               if (!wordLettersArray.includes(getMandatoryYellowLetters[i])) {
                 let letter = getMandatoryYellowLetters[i];
                 let uppercaseLetter = letter.toUpperCase();
-                let rejectionMessage = `[@${user}] ${word}: Rejected. ${uppercaseLetter} isn\'t present in your guess.`;
-                setErrorType(4);
+                let messageString = `: Rejected. ${uppercaseLetter} isn\'t present in your guess.`;
+                let userColor = color;
+                let rejectionMessage = { user, userColor, word, messageString };
                 setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+                setErrorType(4);
                 handleInvalidGuess(word, user, color);
                 return;
               }
@@ -394,9 +408,11 @@ export default function Game(props) {
 
               if (getLetterStatus[word[i]] === 0) {
                 let uppercaseLetter = letter.toUpperCase();
-                let rejectionMessage = `[@${user}] ${word}: Rejected. ${uppercaseLetter} isn\'t present in word to find.`;
-                setErrorType(1);
+                let messageString = `: Rejected. ${uppercaseLetter} isn\'t present in word to find.`;
+                let userColor = color;
+                let rejectionMessage = { user, userColor, word, messageString };
                 setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+                setErrorType(1);
                 console.log(word, ': Rejected by onlyUseAvailableLetters rule.', letter.toUpperCase(), 'isn\'t present in word to find.');
                 updateInvalidLetterStatus(letter, 1);
                 handleInvalidGuess(word, user, color);
@@ -413,9 +429,12 @@ export default function Game(props) {
 
               if (getLetterStatus[word[i]] !== 2 && getAnswerStatus[i] === true) {
                 let uppercaseLetter = letter.toUpperCase();
-                let rejectionMessage = `[@${user}] ${word}: Rejected. Use of ${uppercaseLetter} isn\'t allowed in position number ${i + 1}.`;
-                setErrorType(2);
+                let messageString = `: Rejected. Use of ${uppercaseLetter} isn\'t allowed in position number ${i + 1}.`;
+                let userColor = color;
+                let rejectionMessage = { user, userColor, word, messageString };
                 setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+                // maybe tell user it should be "letter" in position number "i + 1"?
+                setErrorType(2);
                 console.log('rejected by greenLettersHaveToBeUsedInPlace');
                 updateInvalidLetterStatus(letter, 2);
                 handleInvalidGuess(word, user, color);
@@ -459,9 +478,12 @@ export default function Game(props) {
               if ((getLetterStatus[letter] === 1 || tempVar === 1) && getDeniedYellowPositions[letter].includes(i)) {
                 console.log('Rejected by onlyAllowNotTriedPositions. Reason: ', letter, i);
                 let uppercaseLetter = letter.toUpperCase();
-                let rejectionMessage = `[@${user}] ${word}: Rejected. Use of ${uppercaseLetter} isn\'t allowed in position number ${i + 1}.`;
-                setErrorType(3);
+                let messageString = `: Rejected. Use of ${uppercaseLetter} isn\'t allowed in position number ${i + 1}.`;
+                let userColor = color;
+                // let rejectionMessage = `[@${user}] ${word} ${messageString}`;
+                let rejectionMessage = { user, userColor, word, messageString };
                 setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+                setErrorType(3);
                 // console.log('Invalid letters stuff: ', letter, getInvalidLetterStatus[letter]);
                 updateInvalidLetterStatus(letter, 3);
                 handleInvalidGuess(word, user, color);
@@ -502,12 +524,23 @@ export default function Game(props) {
           setErrorType(0);
           handleInvalidGuess(word, user, color);
           // Message to write in "debug"
-          let rejectionMessage = `[@${user}] ${word}: Rejected by MUST BE a word from the list rule.`;
+          let messageString = ': Rejected by MUST BE a word from the list rule.';
+          let userColor = color;
+          // let rejectionMessage = `[@${user}] ${word} ${messageString}`;
+          let rejectionMessage = { user, userColor, word, messageString };
           setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
 
         } // show word not in db in left column
 
         if (word === getAnswer) {
+
+          if (user.toLowerCase(user) !== 'wordplop') {
+            let messageString = `: Congrats, you found it!`;
+            let userColor = color;
+            let rejectionMessage = { user, userColor, word, messageString };
+            setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+          }
+
           //If it's the correct answer, show and alert and reset the game board
           setIsWordFound(true); // prevent future guesses until the game has reset
           updateScores(user, wordLength); // give bonus points for getting the answer
@@ -518,7 +551,20 @@ export default function Game(props) {
         } else {
           console.log("Answer is:", getAnswer);
         }
+      } else {
+        // Debug message for guess during timeout
+        let messageString = `: Ignored cause of timeout. Try again soon !`;
+        let userColor = color;
+        let rejectionMessage = { user, userColor, word, messageString };
+        setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+        return;
       }
+    } else {
+      let messageString = `: Ignored cause of cooldown. Try again soon !`;
+      let userColor = color;
+      let rejectionMessage = { user, userColor, word, messageString };
+      setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+      return;
     }
   };
 
@@ -601,17 +647,48 @@ export default function Game(props) {
     ]);
   };
 
+  // useEffect(() => {
+  //   console.log(getUserScores);
+  //   function checkUserScore(userGivingup) {
+  //     console.log('in function, score for', userGivingup, ':', getUserScores[userGivingup]);
+  //     console.log('in function, all scores:', getUserScores);
+  //     let userGivingupScore = getUserScores[userGivingup];
+  //     return userGivingupScore;
+  //   };
+  // }, [getUserScores]);
+
   useEffect(() => {
     if (client) {
       client.on("message", (channel, tags, message, self) => {
+        const user = tags["display-name"];
+        const userGivingupScore = parseInt(localStorage.getItem(user)) || 0;
+        console.log('Current score for', user, ':', userGivingupScore);
         if (message.startsWith('!')) {
+          console.log('a command as been issued by', user);
+          if (message.toLowerCase(message) === '!giveup') {
+
+            if (userGivingupScore > 24) {
+              handleGiveAnswer();
+              let newuserGivingupScore = userGivingupScore - 25;
+              updateScores(user, newuserGivingupScore);
+              let word = '';
+              let messageString = ` Used 25 points to skip last word.`;
+              let userColor = tags.color;
+              let rejectionMessage = { user, userColor, word, messageString };
+              setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+              return;
+            } else {
+              let word = '';
+              let messageString = ` Denied. You need 25 points to use this command.`;
+              let userColor = tags.color;
+              let rejectionMessage = { user, userColor, word, messageString };
+              setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+              return;
+            }
+
+          }
           if (message.toLowerCase(message) === '!reloadwordle' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             location.reload();
-            return;
-          }
-          if (message.toLowerCase(message) === '!giveup' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
-            handleGiveAnswer();
-            // reset();
             return;
           }
           if (message.toLowerCase(message) === '!showdebug' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
@@ -706,6 +783,16 @@ export default function Game(props) {
             }
             return;
           }
+          if (message.toLowerCase(message).startsWith('!updatescore') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const name = args[1];
+            const value = parseInt(args[2]);
+            // console.log(args[1]);
+            if (!isNaN(value)) {
+              updateScores(name, value);
+            }
+            return;
+          }
           if (message.toLowerCase(message).startsWith('!setcooldownduration') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
@@ -744,7 +831,7 @@ export default function Game(props) {
     initializeDeniedYellowPositions();
     initializeRejectionMessages();
     initializeMandatoryYellowLetters();
-  }, []);
+  }, [client]);
 
   useEffect(() => {
     if (getChatMessages.length) {
@@ -842,8 +929,34 @@ export default function Game(props) {
       if (storedInvalidGuessPenalty !== null) {
         updateInvalidGuessPenalty(JSON.parse(storedInvalidGuessPenalty));
       }
+
     }
+
+    function retrieveScoresFromLocalStorage() {
+
+      const sessionKeys = Object.keys(localStorage).filter(key => key.startsWith('sessionScore_'));
+      const allTimesKeys = Object.keys(localStorage).filter(key => key.startsWith('allTimesScore_'));
+
+      const sessionScores = {};
+      const allTimesScores = {};
+
+      sessionKeys.forEach(key => {
+        const user = key.replace('sessionScore_', '');
+        sessionScores[user] = parseInt(localStorage.getItem(key));
+      });
+
+      allTimesKeys.forEach(key => {
+        const user = key.replace('allTimesScore_', '');
+        allTimesScores[user] = parseInt(localStorage.getItem(key));
+      });
+
+      setUserSessionScores(sessionScores);
+      setUserAllTimesScores(allTimesScores);
+      
+    }
+
     readLocalStorage();
+    retrieveScoresFromLocalStorage();
   }, []); // Retrieve stuff from localStorage.
 
   return (
@@ -853,7 +966,7 @@ export default function Game(props) {
 
         {getShowScoreboard ? (
           <div className={styles.leftTopContainer}>
-            <Scoreboard getUserScores={getUserScores} />
+            <Scoreboard getUserScores={getUserSessionScores} />
           </div>
         ) : (
           <div className={styles.leftTopContainer}></div>
@@ -886,10 +999,10 @@ export default function Game(props) {
       </div>
 
       <div className={styles.middleContainer}>
-        <div className={styles.header}>
+        {/* <div className={styles.header}>
           <h1>Wordplop</h1>
           <h2>Let's make it harder, if we can...</h2>
-        </div>
+        </div> */}
         <BigLetters
           answer={getAnswer}
           answerStatus={getAnswerStatus}
@@ -931,7 +1044,9 @@ export default function Game(props) {
               <ul>
                 {/* Maybe make the -5 a variable at some point */}
                 {getRejectionMessages.slice(-5).map((message, index) => (
-                  <li key={index}>{message}</li>
+                  <li key={index}>
+                    <span style={{ color: "white", opacity: 1, textShadow: `1px 1px 7px ${message.userColor}` }}>@{message.user}</span>: {message.word} {message.messageString}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -964,7 +1079,8 @@ export default function Game(props) {
   );
 }
 
-// haste: adieu rebar exact tapes thema theme... broken
+// seize: slack, sever, sends < sends should have been rejected, sever tells us 2 "e" but sends is accepted
+// haste: adieu rebar exact tapes thema theme... broken. should be fixed
 
 // Added localStorage stuff:
 // -show/hide debug panel (!showdebug, !hidedebug)

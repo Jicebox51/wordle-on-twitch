@@ -72,7 +72,7 @@
 
   h2 {
     font-weight: normal;
-    font-size: varSize(36);
+    font-size: varSize(24);
   }
 }
 
@@ -88,12 +88,12 @@
   // }
 
   h1 {
-    font-size: varSize(82);
+    font-size: varSize(30);
   }
 
   h2 {
     font-weight: normal;
-    font-size: varSize(36);
+    font-size: varSize(30);
   }
 }
 
@@ -106,13 +106,13 @@
 
   h2 {
     font-weight: normal;
-    font-size: varSize(36);
+    font-size: varSize(24);
   }
 }
 
 .debugMessages {
   text-align: left;
-  opacity: 0.2;
+  opacity: 0.75;
   margin-top: 10px;
   text-transform: none;
 }
