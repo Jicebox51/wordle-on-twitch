@@ -78,7 +78,8 @@ export default function Game(props) {
   const [cooldown, setCooldown] = useState(false);
   const cooldownDurationInSeconds = cooldownDuration / 1000;
   const invalidGuessPenaltyInSeconds = invalidGuessPenalty / 1000;
-  
+  const [getGiveupCost, setGiveupCost] = useState(25);
+
   const [getPreviousAnswer, setPreviousAnswer] = useState('');
   const [getDefinition, setDefinition] = useState('');
 
@@ -322,6 +323,10 @@ export default function Game(props) {
 
   const updateInvalidGuessPenalty = (value) => {
     setInvalidGuessPenalty(value);
+  };
+
+  const updateGiveupCost = (value) => {
+    setGiveupCost(value);
   };
 
   const updateInvalidLetterStatus = (letter, status) => {
@@ -661,32 +666,25 @@ export default function Game(props) {
     if (client) {
       client.on("message", (channel, tags, message, self) => {
         const user = tags["display-name"];
-        const userGivingupScore = parseInt(localStorage.getItem(user)) || 0;
+        const cost = parseInt(localStorage.getItem('getGiveupCost')) || 25;
+        const userGivingupScore = parseInt(localStorage.getItem(`sessionScore_${user}`)) || 0;
         console.log('Current score for', user, ':', userGivingupScore);
         if (message.startsWith('!')) {
           console.log('a command as been issued by', user);
+
           if (message.toLowerCase(message) === '!giveup') {
-
-            if (userGivingupScore > 24) {
-              handleGiveAnswer();
-              let newuserGivingupScore = userGivingupScore - 25;
-              updateScores(user, newuserGivingupScore);
-              let word = '';
-              let messageString = ` Used 25 points to skip last word.`;
-              let userColor = tags.color;
-              let rejectionMessage = { user, userColor, word, messageString };
-              setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
-              return;
-            } else {
-              let word = '';
-              let messageString = ` Denied. You need 25 points to use this command.`;
-              let userColor = tags.color;
-              let rejectionMessage = { user, userColor, word, messageString };
-              setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
-              return;
-            }
-
+            handleGiveAnswer();
+            let newuserGivingupScore = userGivingupScore - cost;
+            console.log('old score: ', userGivingupScore, 'giveup cost: ', cost, 'new score: ', newuserGivingupScore)
+            updateScores(user, newuserGivingupScore);
+            let word = '';
+            let messageString = ` Used 25 points to skip last word.`;
+            let userColor = tags.color;
+            let rejectionMessage = { user, userColor, word, messageString };
+            setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+            return;
           }
+
           if (message.toLowerCase(message) === '!reloadwordle' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             location.reload();
             return;
@@ -793,6 +791,16 @@ export default function Game(props) {
             }
             return;
           }
+          if (message.toLowerCase(message).startsWith('!updategiveupcost') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = parseInt(args[1]);
+            // console.log(args[1]);
+            if (!isNaN(value)) {
+              updateGiveupCost(value);
+              localStorage.setItem('getGiveupCost', value);
+            }
+            return;
+          }
           if (message.toLowerCase(message).startsWith('!setcooldownduration') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
@@ -877,6 +885,10 @@ export default function Game(props) {
   }, [invalidGuessPenalty]);
 
   useEffect(() => {
+    // console.log('invalidGuessPenalty: ' + invalidGuessPenalty);
+  }, [getGiveupCost]);
+
+  useEffect(() => {
 
     function readLocalStorage() {
 
@@ -925,6 +937,11 @@ export default function Game(props) {
         updateCooldownDuration(JSON.parse(storedCooldownDuration));
       }
 
+      const storedGetGiveupCost = localStorage.getItem('getGiveupCost');
+      if (storedGetGiveupCost !== null) {
+        updateGiveupCost(JSON.parse(storedGetGiveupCost));
+      }
+
       const storedInvalidGuessPenalty = localStorage.getItem('invalidGuessPenalty');
       if (storedInvalidGuessPenalty !== null) {
         updateInvalidGuessPenalty(JSON.parse(storedInvalidGuessPenalty));
@@ -952,7 +969,7 @@ export default function Game(props) {
 
       setUserSessionScores(sessionScores);
       setUserAllTimesScores(allTimesScores);
-      
+
     }
 
     readLocalStorage();
@@ -1029,6 +1046,7 @@ export default function Game(props) {
                 <li>Green letters must be reused in place: {greenLettersHaveToBeUsedInPlace.toString()}</li>
                 <li>Yellow letter must be tried in new position: {onlyAllowNotTriedPositions.toString()}</li>
                 <li>Yellow letters are mandatory in new guess: {allYellowLettersHaveToBeReused.toString()}</li>
+                <li>!giveup command cost: {getGiveupCost} point(s)</li>
                 <li>Secret setting: {getSecretSetting.toString()}</li>
               </ul>
             </div>
