@@ -10,7 +10,7 @@ import EntryField from "../EntryField";
 import answerList from "@/app/data/5letters/solutionwords.json";
 import wordList from "@/app/data/5letters/words.json";
 import SoundUtils from "../SoundUtils";
-import { useSettings, displaySettings, difficultySettings } from "../Settings";
+import { useSettings, displaySettings, difficultySettings, soundSettings } from "../Settings";
 import { parseArgs } from "util";
 
 export default function Game(props) {
@@ -19,6 +19,7 @@ export default function Game(props) {
     ...useSettings(),
     ...displaySettings(),
     ...difficultySettings(),
+    ...soundSettings(),
   };
   const [getAnswer, setAnswer] = useState("");
   const [getChatMessages, setChatMessages] = useState([]);

@@ -5,7 +5,6 @@ export const useSettings = () => {
   // Get all settings from URL with a default value if not present in the URL:
 
   // sound:
-  const [getSecretSetting, setSecretSetting] = useState(false);
   // Cooldowns/Penalties
   // Specific user timeout on valid guess:
   // Time during which any invalid guess will not be taken into account after a user made a valid one
@@ -18,13 +17,6 @@ export const useSettings = () => {
   // Unused yet:
   const penaltyForNonExistingWords = false;
   const penaltyForUsingRemovedLetter = false;
-
-  const updateSecretSetting = (value) => {
-    setSecretSetting(value);
-  };
-
-  useEffect(() => {
-  }, [getSecretSetting]);
 
   const updateCooldownDuration = (value) => {
     setCooldownDuration(value);
@@ -48,8 +40,6 @@ export const useSettings = () => {
   }, [getGiveupCost]);
 
   return {
-    updateSecretSetting,
-    getSecretSetting,
     updateCooldownDuration,
     cooldownDuration,
     updateInvalidGuessPenalty,
