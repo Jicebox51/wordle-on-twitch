@@ -1,4 +1,4 @@
 export * from "./display";
-export * from "./settings";
+export * from "./timers";
 export * from "./difficulty";
-export * from "./sounds.js";
+export * from "./sounds";

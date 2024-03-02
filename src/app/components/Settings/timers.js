@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 
-export const useSettings = () => {
+export const timersSettings = () => {
 
   // Get all settings from URL with a default value if not present in the URL:
-
-  // sound:
+  
   // Cooldowns/Penalties
   // Specific user timeout on valid guess:
   // Time during which any invalid guess will not be taken into account after a user made a valid one
