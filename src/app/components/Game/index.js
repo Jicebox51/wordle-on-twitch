@@ -9,12 +9,18 @@ import RejectionBlock from "../RejectionBlock";
 import EntryField from "../EntryField";
 import answerList from "@/app/data/5letters/solutionwords.json";
 import wordList from "@/app/data/5letters/words.json";
+import SoundUtils from "../SoundUtils";
+import { useSettings, displaySettings, difficultySettings } from "../Settings";
 import { parseArgs } from "util";
 
 export default function Game(props) {
   const { client } = props;
+  const settings = {
+    ...useSettings(),
+    ...displaySettings(),
+    ...difficultySettings(),
+  };
   const [getAnswer, setAnswer] = useState("");
-  const getAnswerGiveup = getAnswer;
   const [getChatMessages, setChatMessages] = useState([]);
   const [getGuessArray, setGuessArray] = useState([]);
   const [getChatArray, setChatArray] = useState([]);
@@ -24,41 +30,24 @@ export default function Game(props) {
   const [getUserSessionScores, setUserSessionScores] = useState({});
   const [getUserAllTimesScores, setUserAllTimesScores] = useState({});
   const [isWordFound, setIsWordFound] = useState(false);
-  const wordLength = 5;
-  const timeoutLength = 3000;
-  const whooshSound = new Audio("/sounds/whoosh.wav");
-  const pointSound1 = new Audio("/sounds/coin3.wav");
-  const pointSound2 = new Audio("/sounds/coin2.wav");
-  const pointSound3 = new Audio("/sounds/coin.wav");
-  const cardSound = new Audio("/sounds/card.wav");
-  const winSound = new Audio("/sounds/success.wav");
-  const failSound = new Audio("/sounds/error1.wav");
-  const nopeSoundM = new Audio("/sounds/nopeMale.wav");
-  const nopeSoundF = new Audio("/sounds/nopeFemale.wav");
-  const bsSound1 = new Audio("/sounds/BS1.wav");
-  const bsSound2 = new Audio("/sounds/BS2.wav");
-  const bsSound3 = new Audio("/sounds/BS3.wav");
-  const bsSound4 = new Audio("/sounds/BS4-comeon.wav");
   const [getErrorType, setErrorType] = useState(0);
-  const [getSecretSetting, setSecretSetting] = useState(false);
-  const [getShowScoreboard, setShowScoreboard] = useState(false);
-  const [getShowDebug, setShowDebug] = useState(false);
-  const [getShowSettings, setShowSettings] = useState(false);
+  const [getMandatoryYellowLetters, setMandatoryYellowLetters] = useState([]);
+  const [getRejectionMessages, setRejectionMessages] = useState([]);
+  const [getInvalidChatArray, setInvalidChatArray] = useState([]);
+  const [getInvalidLetterStatus, setInvalidLetterStatus] = useState({});
+  const [getDeniedYellowPositions, setDeniedYellowPositions] = useState({});
+  const timeoutLength = 3000;
+  const [cooldown, setCooldown] = useState(false);
+  const invalidGuessPenaltyInSeconds = settings.invalidGuessPenalty / 1000;
+  const cooldownDurationInSeconds = settings.cooldownDuration / 1000;
+  const [getInvalidGuessArray, setInvalidGuessArray] = useState([]);
+
   // WIP PART
   // TODO:
 
   // All time scores and temp scores would be cool
 
   // Make a visual to show players the state of the global cooldown
-  // Get these settings from URL with a default value if not present in the URL:
-  const [onlyUseAvailableLetters, setOnlyUseAvailableLetters] = useState(true);
-  const [onlyAllowNotTriedPositions, setOnlyAllowNotTriedPositions] = useState(true);
-  const [greenLettersHaveToBeUsedInPlace, setGreenLettersHaveToBeUsedInPlace] = useState(true);
-  const [allYellowLettersHaveToBeReused, setAllYellowLettersHaveToBeReused] = useState(true);
-  const [cooldownDuration, setCooldownDuration] = useState(1000);
-  const [invalidGuessPenalty, setInvalidGuessPenalty] = useState(10000);
-  const penaltyForNonExistingWords = false;
-  const penaltyForUsingRemovedLetter = false;
   // Make sound to play when guess is invalid random from a list
   // Keep thinking about a way to increase difficulty on a per user basis
   // Different penalties based on type of mistake?
@@ -67,40 +56,14 @@ export default function Game(props) {
   // Modify settings and debug panels to be just panels and display dynamic stuff in there
   // like settings could become last x answers on a timer then back to settings or display yet something else
 
+  // make a timer so game fade out after x (var/setting) minutes no guess done and "come back" on a guess
+  // plus a switch to enable/disable that feat.
+  // Also add !hidewordle at the same time
+
   // if you're feeling really evil, make it exponentially increase the timeout if someone does a guess during their timeout
-  const [getMandatoryYellowLetters, setMandatoryYellowLetters] = useState([]);
-  const [getInvalidGuessArray, setInvalidGuessArray] = useState([]);
-  const [getRejectionMessages, setRejectionMessages] = useState([]);
-  const [getInvalidChatArray, setInvalidChatArray] = useState([]);
-  const [getInvalidLetterStatus, setInvalidLetterStatus] = useState({});
-  const [getInvalidGuessesDisplayed, setInvalidGuessesDisplayed] = useState(-12);
-  const [getDeniedYellowPositions, setDeniedYellowPositions] = useState({});
-  const [cooldown, setCooldown] = useState(false);
-  const cooldownDurationInSeconds = cooldownDuration / 1000;
-  const invalidGuessPenaltyInSeconds = invalidGuessPenalty / 1000;
-  const [getGiveupCost, setGiveupCost] = useState(25);
 
   const [getPreviousAnswer, setPreviousAnswer] = useState('');
   const [getDefinition, setDefinition] = useState('');
-
-  whooshSound.volume = 0.5;
-  pointSound1.volume = 0.3;
-  pointSound2.volume = 0.4;
-  pointSound3.volume = 0.5;
-  winSound.volume = 0.8;
-  failSound.volume = 1;
-  nopeSoundM.volume = 1;
-  nopeSoundF.volume = 1;
-  bsSound1.volume = 1;
-  bsSound2.volume = 1;
-  bsSound3.volume = 1;
-  bsSound4.volume = 1;
-
-  const updateInvalidGuessesDisplayed = (value) => {
-    if (!isNaN(value)) {
-      setInvalidGuessesDisplayed(value);
-    }
-  };
 
   const initializeRejectionMessages = () => {
     const tempRejectionMessages = [];
@@ -141,7 +104,7 @@ export default function Game(props) {
   // Reset the object keeping track of the answer status to all false
   const initializeAnswerStatus = () => {
     const tempAnswerStatus = [];
-    for (let i = 0; i < wordLength; i++) {
+    for (let i = 0; i < settings.wordLength; i++) {
       tempAnswerStatus.push(false);
     }
     setAnswerStatus(tempAnswerStatus);
@@ -257,14 +220,13 @@ export default function Game(props) {
     setIsWordFound(false);
     setTimeoutStatus({});
     initializeDeniedYellowPositions();
-    updateInvalidGuessesDisplayed();
+    settings.updateInvalidGuessesDisplayed();
     setCooldown(false);
     initializeRejectionMessages();
     initializeMandatoryYellowLetters();
   };
 
   const isUserTimedOut = (user) => {
-    // console.log(getTimeoutStatus);
     return getTimeoutStatus[user];
   };
 
@@ -293,42 +255,6 @@ export default function Game(props) {
     });
   };
 
-  const updateSecretSetting = (value) => {
-    setSecretSetting(value);
-  };
-
-  const updateShowScoreboard = (value) => {
-    setShowScoreboard(value);
-  };
-
-  const updateOnlyUseAvailableLetters = (value) => {
-    setOnlyUseAvailableLetters(value);
-  };
-
-  const updateOnlyAllowNotTriedPositions = (value) => {
-    setOnlyAllowNotTriedPositions(value);
-  };
-
-  const updateGreenLettersHaveToBeUsedInPlace = (value) => {
-    setGreenLettersHaveToBeUsedInPlace(value);
-  };
-
-  const updateAllYellowLettersHaveToBeReused = (value) => {
-    setAllYellowLettersHaveToBeReused(value);
-  };
-
-  const updateCooldownDuration = (value) => {
-    setCooldownDuration(value);
-  };
-
-  const updateInvalidGuessPenalty = (value) => {
-    setInvalidGuessPenalty(value);
-  };
-
-  const updateGiveupCost = (value) => {
-    setGiveupCost(value);
-  };
-
   const updateInvalidLetterStatus = (letter, status) => {
     // adding rejectionStatus
     // 0=not rejected
@@ -339,7 +265,6 @@ export default function Game(props) {
       ...prevObject,
       [letter]: status
     }));
-    // console.log('in update invalid letter: ', letter, status)
   };
 
   const handleInvalidGuess = (word, user, color) => {
@@ -347,10 +272,8 @@ export default function Game(props) {
     let newChatEntry = [word, user, color];
     // console.log(getChatArray);
     setInvalidChatArray((prevInvalidChatArray) => [...prevInvalidChatArray, newChatEntry]);
-    timeoutUser(user, invalidGuessPenalty);
+    timeoutUser(user, settings.invalidGuessPenalty);
   }; // we now need to handle invalid guesses too to display them
-
-  // console.log('before function:', 'getAnswer:', getAnswer);
 
   const handleGiveAnswer = () => {
     console.log('tests:', getAnswer, 'Wordplop', '#B22222');
@@ -378,7 +301,7 @@ export default function Game(props) {
           return;
         } // word for this round has already been found
 
-        if (word.length !== wordLength) {
+        if (word.length !== settings.wordLength) {
           return;
         } // not the right length
 
@@ -391,7 +314,7 @@ export default function Game(props) {
           var tempDeniedPositionsToBeAdded = [];
           const wordLettersArray = word.split('');
 
-          if (allYellowLettersHaveToBeReused === true) {
+          if (settings.allYellowLettersHaveToBeReused === true) {
             for (let i = 0; i < getMandatoryYellowLetters.length; i++) {
               if (!wordLettersArray.includes(getMandatoryYellowLetters[i])) {
                 let letter = getMandatoryYellowLetters[i];
@@ -409,7 +332,7 @@ export default function Game(props) {
 
           for (let i = 0; i < word.length; i++) {
             var letter = word[i];
-            if (onlyUseAvailableLetters === true) {
+            if (settings.onlyUseAvailableLetters === true) {
 
               if (getLetterStatus[word[i]] === 0) {
                 let uppercaseLetter = letter.toUpperCase();
@@ -430,7 +353,7 @@ export default function Game(props) {
               updateInvalidLetterStatus(letter, 0);
             }; // only allow not tried letters in guess
 
-            if (greenLettersHaveToBeUsedInPlace === true) {
+            if (settings.greenLettersHaveToBeUsedInPlace === true) {
 
               if (getLetterStatus[word[i]] !== 2 && getAnswerStatus[i] === true) {
                 let uppercaseLetter = letter.toUpperCase();
@@ -452,7 +375,7 @@ export default function Game(props) {
               updateInvalidLetterStatus(letter, 0);
             }; // only allow guesses with green letters in at the right place
 
-            if (onlyAllowNotTriedPositions === true) {
+            if (settings.onlyAllowNotTriedPositions === true) {
               // console.log('from check', letter, getDeniedYellowPositions[letter]);
               let tempArray = Array(word.length).fill(0);
               let wordLetterArray = word.split("");
@@ -498,16 +421,26 @@ export default function Game(props) {
               }
 
               // console.log('tempArray: ', tempArray);
-              console.log('tempDeniedPositionsToBeAdded', tempDeniedPositionsToBeAdded);
+              console.log('tempDeniedPositionsToBeAdded:', tempDeniedPositionsToBeAdded, 'i:', i);
 
 
-              if (wordLetterArray.length - 1 === i && !getDeniedYellowPositions[letter].includes(i)) {
+              if (wordLetterArray.length - 1 === i) {
+
+                // if (!getDeniedYellowPositions[letter].includes(i)) {
                 if (tempDeniedPositionsToBeAdded.length > 0) {
                   for (const [letter, pos] of tempDeniedPositionsToBeAdded) {
                     updateDeniedYellowPositions(letter, pos);
                     console.log('updating', letter, 'with position', pos);
                   }
+                } else {
+                  console.log('tempDeniedPositionsToBeAdded is empty. Nothing to do');
                 }
+                // } else {
+                //   console.log(letter, i, 'in temp array');
+                // }
+
+              } else {
+                console.log('Have we reached the end of the word?', wordLetterArray.length - 1 === i, ' && condition 2:', !getDeniedYellowPositions[letter].includes(i));
               }
 
             } // only allow different position for yellows
@@ -523,7 +456,7 @@ export default function Game(props) {
           setTimeout(function () {
             // console.log('validGuess cooldown is over');
             setCooldown(false);
-          }, cooldownDuration);
+          }, settings.cooldownDuration);
         } else {
           // Word isn't in words list
           setErrorType(0);
@@ -548,7 +481,7 @@ export default function Game(props) {
 
           //If it's the correct answer, show and alert and reset the game board
           setIsWordFound(true); // prevent future guesses until the game has reset
-          updateScores(user, wordLength); // give bonus points for getting the answer
+          updateScores(user, settings.wordLength); // give bonus points for getting the answer
 
           setTimeout(function () {
             reset();
@@ -557,7 +490,6 @@ export default function Game(props) {
           console.log("Answer is:", getAnswer);
         }
       } else {
-        // Debug message for guess during timeout
         let messageString = `: Ignored cause of timeout. Try again soon !`;
         let userColor = color;
         let rejectionMessage = { user, userColor, word, messageString };
@@ -573,77 +505,6 @@ export default function Game(props) {
     }
   };
 
-  const playCardSound = (n) => {
-    if (n === undefined) {
-      n = wordLength;
-    } // Play the sound one time for each letter
-    if (n <= 0) {
-      return;
-    }
-
-    cardSound.currentTime = 0;
-    // console.log('playCardSound');
-    cardSound.play(); // Play the audio clip
-
-    // Schedule the next play after a 0.1-second delay
-    setTimeout(() => {
-      playCardSound(n - 1); // Play the audio clip n-1 more times
-    }, 100);
-  };
-
-  const playWhooshSound = () => {
-    // console.log('playWhooshSound');
-    whooshSound.play();
-  };
-
-  const playPoint1Sound = () => {
-    // console.log('playPoint1Sound');
-    pointSound1.play();
-  };
-
-  const playPoint2Sound = () => {
-    // console.log('playPoint2Sound');
-    pointSound2.play();
-  };
-
-  const playPoint3Sound = () => {
-    // console.log('playPoint3Sound');
-    pointSound3.play();
-  };
-
-  const playWinSound = () => {
-    // console.log('playWinSound');
-    winSound.play();
-  };
-
-  const playFailSound = () => {
-    failSound.play();
-  };
-
-  const playNopeSoundM = () => {
-    nopeSoundM.play();
-  };
-
-  const playNopeSoundF = () => {
-    nopeSoundF.play();
-  };
-
-  const playBsSound1 = () => {
-    bsSound1.play();
-  };
-
-  const playBsSound2 = () => {
-    bsSound2.play();
-  };
-
-  const playBsSound3 = () => {
-    bsSound3.play();
-  };
-
-  const playBsSound4 = () => {
-    bsSound4.play();
-  };
-
   const addChatMessage = (word, user, color) => {
     let newChatMessage = [word, user, color];
     setChatMessages((prevChatMessages) => [
@@ -651,16 +512,6 @@ export default function Game(props) {
       newChatMessage,
     ]);
   };
-
-  // useEffect(() => {
-  //   console.log(getUserScores);
-  //   function checkUserScore(userGivingup) {
-  //     console.log('in function, score for', userGivingup, ':', getUserScores[userGivingup]);
-  //     console.log('in function, all scores:', getUserScores);
-  //     let userGivingupScore = getUserScores[userGivingup];
-  //     return userGivingupScore;
-  //   };
-  // }, [getUserScores]);
 
   useEffect(() => {
     if (client) {
@@ -690,22 +541,22 @@ export default function Game(props) {
             return;
           }
           if (message.toLowerCase(message) === '!showdebug' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
-            setShowDebug(true);
+            settings.setShowDebug(true);
             localStorage.setItem('showDebug', 'true');
             return;
           }
           if (message.toLowerCase(message) === '!hidedebug' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
-            setShowDebug(false);
+            settings.setShowDebug(false);
             localStorage.setItem('showDebug', 'false');
             return;
           }
           if (message.toLowerCase(message) === '!showsettings' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
-            setShowSettings(true);
+            settings.setShowSettings(true);
             localStorage.setItem('showSettings', 'true');
             return;
           }
           if (message.toLowerCase(message) === '!hidesettings' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
-            setShowSettings(false);
+            settings.setShowSettings(false);
             localStorage.setItem('showSettings', 'false');
             return;
           }
@@ -714,7 +565,7 @@ export default function Game(props) {
             const value = args[1];
             console.log(args[1]);
             if (value === 'true' || value === 'false') {
-              updateSecretSetting(value === 'true' ? true : false);
+              settings.updateSecretSetting(value === 'true' ? true : false);
               localStorage.setItem('secretSetting', value);
             }
             return;
@@ -724,7 +575,7 @@ export default function Game(props) {
             const value = args[1];
             console.log(args[1]);
             if (value === 'true' || value === 'false') {
-              updateShowScoreboard(value === 'true' ? true : false);
+              settings.updateShowScoreboard(value === 'true' ? true : false);
               localStorage.setItem('showScoreboard', value);
             }
             return;
@@ -734,7 +585,7 @@ export default function Game(props) {
             const value = args[1];
             console.log(args[1]);
             if (value === 'true' || value === 'false') {
-              updateOnlyUseAvailableLetters(value === 'true' ? true : false);
+              settings.updateOnlyUseAvailableLetters(value === 'true' ? true : false);
               localStorage.setItem('onlyUseAvailableLetters', value);
             }
             return;
@@ -744,7 +595,7 @@ export default function Game(props) {
             const value = args[1];
             console.log(args[1]);
             if (value === 'true' || value === 'false') {
-              updateOnlyAllowNotTriedPositions(value === 'true' ? true : false);
+              settings.updateOnlyAllowNotTriedPositions(value === 'true' ? true : false);
               localStorage.setItem('onlyAllowNotTriedPositions', value);
             }
             return;
@@ -754,7 +605,7 @@ export default function Game(props) {
             const value = args[1];
             console.log(args[1]);
             if (value === 'true' || value === 'false') {
-              updateGreenLettersHaveToBeUsedInPlace(value === 'true' ? true : false);
+              settings.updateGreenLettersHaveToBeUsedInPlace(value === 'true' ? true : false);
               localStorage.setItem('greenLettersHaveToBeUsedInPlace', value);
             }
             return;
@@ -764,20 +615,19 @@ export default function Game(props) {
             const value = args[1];
             console.log(args[1]);
             if (value === 'true' || value === 'false') {
-              updateAllYellowLettersHaveToBeReused(value === 'true' ? true : false);
+              settings.updateAllYellowLettersHaveToBeReused(value === 'true' ? true : false);
               localStorage.setItem('allYellowLettersHaveToBeReused', value);
             }
             return;
           }
           if (message.toLowerCase(message) === '!test' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
-            playBsSound2();
+            SoundUtils.playBsSound2();
           }
           if (message.toLowerCase(message).startsWith('!setinvguesses') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
-            // console.log(args[1]);
             if (!isNaN(value)) {
-              updateInvalidGuessesDisplayed(value);
+              settings.updateInvalidGuessesDisplayed(value);
             }
             return;
           }
@@ -785,7 +635,6 @@ export default function Game(props) {
             const args = message.split(' ');
             const name = args[1];
             const value = parseInt(args[2]);
-            // console.log(args[1]);
             if (!isNaN(value)) {
               updateScores(name, value);
             }
@@ -794,9 +643,8 @@ export default function Game(props) {
           if (message.toLowerCase(message).startsWith('!updategiveupcost') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
-            // console.log(args[1]);
             if (!isNaN(value)) {
-              updateGiveupCost(value);
+              settings.updateGiveupCost(value);
               localStorage.setItem('getGiveupCost', value);
             }
             return;
@@ -804,9 +652,8 @@ export default function Game(props) {
           if (message.toLowerCase(message).startsWith('!setcooldownduration') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
-            // console.log(args[1]);
             if (!isNaN(value)) {
-              updateCooldownDuration(value);
+              settings.updateCooldownDuration(value);
               localStorage.setItem('cooldownDuration', value);
             }
             return;
@@ -814,9 +661,8 @@ export default function Game(props) {
           if (message.toLowerCase(message).startsWith('!setinvalidguesspenalty') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
-            // console.log(args[1]);
             if (!isNaN(value)) {
-              updateInvalidGuessPenalty(value);
+              settings.updateInvalidGuessPenalty(value);
               localStorage.setItem('invalidGuessPenalty', value);
             }
             return;
@@ -825,7 +671,6 @@ export default function Game(props) {
         }
         const doesStringContainLettersOnly = /^[a-zA-Z]+$/.test(message);
         if (!doesStringContainLettersOnly) {
-          // console.log(message, ': String didn\'t pass the only letters check');
           return;
         }
         addChatMessage(message, tags["display-name"], tags["color"]);
@@ -853,40 +698,10 @@ export default function Game(props) {
   }, [getChatMessages]);
 
   useEffect(() => {
-    // console.log(getRejectionMessages);
   }, [getRejectionMessages]);
 
   useEffect(() => {
-    // console.log('Mandatory letters array: ', getMandatoryYellowLetters);
   }, [getMandatoryYellowLetters]);
-
-  useEffect(() => {
-    // console.log('getSecretSetting: ' + getSecretSetting);
-  }, [getSecretSetting]);
-
-  useEffect(() => {
-    // console.log('onlyUseAvailableLetters: ' + onlyUseAvailableLetters);
-  }, [onlyUseAvailableLetters]);
-
-  useEffect(() => {
-    // console.log('onlyAllowNotTriedPositions: ' + onlyAllowNotTriedPositions);
-  }, [onlyAllowNotTriedPositions]);
-
-  useEffect(() => {
-    // console.log('greenLettersHaveToBeUsedInPlace: ' + greenLettersHaveToBeUsedInPlace);
-  }, [greenLettersHaveToBeUsedInPlace]);
-
-  useEffect(() => {
-    // console.log('cooldownDuration: ' + cooldownDuration);
-  }, [cooldownDuration]);
-
-  useEffect(() => {
-    // console.log('invalidGuessPenalty: ' + invalidGuessPenalty);
-  }, [invalidGuessPenalty]);
-
-  useEffect(() => {
-    // console.log('invalidGuessPenalty: ' + invalidGuessPenalty);
-  }, [getGiveupCost]);
 
   useEffect(() => {
 
@@ -894,57 +709,57 @@ export default function Game(props) {
 
       const storedShowDebug = localStorage.getItem('showDebug');
       if (storedShowDebug !== null) {
-        setShowDebug(JSON.parse(storedShowDebug));
+        settings.setShowDebug(JSON.parse(storedShowDebug));
       }
 
       const storedShowSettings = localStorage.getItem('showSettings');
       if (storedShowSettings !== null) {
-        setShowSettings(JSON.parse(storedShowSettings));
+        settings.setShowSettings(JSON.parse(storedShowSettings));
       }
 
       const storedSecretSetting = localStorage.getItem('secretSetting');
       if (storedSecretSetting !== null) {
-        updateSecretSetting(JSON.parse(storedSecretSetting));
+        settings.updateSecretSetting(JSON.parse(storedSecretSetting));
       }
 
       const storedShowScoreboard = localStorage.getItem('showScoreboard');
       if (storedShowScoreboard !== null) {
-        updateShowScoreboard(JSON.parse(storedShowScoreboard));
+        settings.updateShowScoreboard(JSON.parse(storedShowScoreboard));
       }
 
       const storedOnlyUseAvailableLetters = localStorage.getItem('onlyUseAvailableLetters');
       if (storedOnlyUseAvailableLetters !== null) {
-        updateOnlyUseAvailableLetters(JSON.parse(storedOnlyUseAvailableLetters));
+        settings.updateOnlyUseAvailableLetters(JSON.parse(storedOnlyUseAvailableLetters));
       }
 
       const storedOnlyAllowNotTriedPositions = localStorage.getItem('onlyAllowNotTriedPositions');
       if (storedOnlyAllowNotTriedPositions !== null) {
-        updateOnlyAllowNotTriedPositions(JSON.parse(storedOnlyAllowNotTriedPositions));
+        settings.updateOnlyAllowNotTriedPositions(JSON.parse(storedOnlyAllowNotTriedPositions));
       }
 
       const storedGreenLettersHaveToBeUsedInPlace = localStorage.getItem('greenLettersHaveToBeUsedInPlace');
       if (storedGreenLettersHaveToBeUsedInPlace !== null) {
-        updateGreenLettersHaveToBeUsedInPlace(JSON.parse(storedGreenLettersHaveToBeUsedInPlace));
+        settings.updateGreenLettersHaveToBeUsedInPlace(JSON.parse(storedGreenLettersHaveToBeUsedInPlace));
       }
 
       const storedAllYellowLettersHaveToBeReused = localStorage.getItem('allYellowLettersHaveToBeReused');
       if (storedAllYellowLettersHaveToBeReused !== null) {
-        updateAllYellowLettersHaveToBeReused(JSON.parse(storedAllYellowLettersHaveToBeReused));
+        settings.updateAllYellowLettersHaveToBeReused(JSON.parse(storedAllYellowLettersHaveToBeReused));
       }
 
       const storedCooldownDuration = localStorage.getItem('cooldownDuration');
       if (storedCooldownDuration !== null) {
-        updateCooldownDuration(JSON.parse(storedCooldownDuration));
+        settings.updateCooldownDuration(JSON.parse(storedCooldownDuration));
       }
 
       const storedGetGiveupCost = localStorage.getItem('getGiveupCost');
       if (storedGetGiveupCost !== null) {
-        updateGiveupCost(JSON.parse(storedGetGiveupCost));
+        settings.updateGiveupCost(JSON.parse(storedGetGiveupCost));
       }
 
       const storedInvalidGuessPenalty = localStorage.getItem('invalidGuessPenalty');
       if (storedInvalidGuessPenalty !== null) {
-        updateInvalidGuessPenalty(JSON.parse(storedInvalidGuessPenalty));
+        settings.updateInvalidGuessPenalty(JSON.parse(storedInvalidGuessPenalty));
       }
 
     }
@@ -981,7 +796,7 @@ export default function Game(props) {
       <div className={styles.leftContainer}>
 
 
-        {getShowScoreboard ? (
+        {settings.getShowScoreboard ? (
           <div className={styles.leftTopContainer}>
             <Scoreboard getUserScores={getUserSessionScores} />
           </div>
@@ -990,7 +805,7 @@ export default function Game(props) {
         )}
 
         <div className={styles.leftBottomContainer}>
-          {getInvalidChatArray.slice(getInvalidGuessesDisplayed).map((chatEntry, index) => (
+          {getInvalidChatArray.slice(settings.getInvalidGuessesDisplayed).map((chatEntry, index) => (
             <RejectionBlock
               key={index}
               word={chatEntry[0]}
@@ -1002,14 +817,14 @@ export default function Game(props) {
               updateAnswerStatus={updateAnswerStatus}
               invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
               getErrorType={getErrorType}
-              getSecretSetting={getSecretSetting}
-              playNopeSoundM={playNopeSoundM}
-              playNopeSoundF={playNopeSoundF}
-              playFailSound={playFailSound}
-              playBsSound1={playBsSound1}
-              playBsSound2={playBsSound2}
-              playBsSound3={playBsSound3}
-              playBsSound4={playBsSound4}
+              getSecretSetting={settings.getSecretSetting}
+              playNopeSoundM={SoundUtils.playNopeSoundM}
+              playNopeSoundF={SoundUtils.playNopeSoundF}
+              playFailSound={SoundUtils.playFailSound}
+              playBsSound1={SoundUtils.playBsSound1}
+              playBsSound2={SoundUtils.playBsSound2}
+              playBsSound3={SoundUtils.playBsSound3}
+              playBsSound4={SoundUtils.playBsSound4}
             />
           ))}
         </div>
@@ -1024,16 +839,16 @@ export default function Game(props) {
           answer={getAnswer}
           answerStatus={getAnswerStatus}
           isWordFound={isWordFound}
-          playCardSound={playCardSound}
+          playCardSound={SoundUtils.playCardSound}
         />
         <Keyboard
           letterStatus={getLetterStatus}
-          playPoint1Sound={playPoint1Sound}
-          playPoint2Sound={playPoint2Sound}
-          playPoint3Sound={playPoint3Sound}
+          playPoint1Sound={SoundUtils.playPoint1Sound}
+          playPoint2Sound={SoundUtils.playPoint2Sound}
+          playPoint3Sound={SoundUtils.playPoint3Sound}
         />
 
-        {getShowSettings && (
+        {settings.getShowSettings && (
           <div>
             <div className={styles.gameSettings}>
               <h2>Game Settings</h2>
@@ -1042,18 +857,18 @@ export default function Game(props) {
               <ul>
                 <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
                 <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
-                <li>Only use available letters: {onlyUseAvailableLetters.toString()}</li>
-                <li>Green letters must be reused in place: {greenLettersHaveToBeUsedInPlace.toString()}</li>
-                <li>Yellow letter must be tried in new position: {onlyAllowNotTriedPositions.toString()}</li>
-                <li>Yellow letters are mandatory in new guess: {allYellowLettersHaveToBeReused.toString()}</li>
-                <li>!giveup command cost: {getGiveupCost} point(s)</li>
-                <li>Secret setting: {getSecretSetting.toString()}</li>
+                <li>Only use available letters: {settings.onlyUseAvailableLetters.toString()}</li>
+                <li>Green letters must be reused in place: {settings.greenLettersHaveToBeUsedInPlace.toString()}</li>
+                <li>Yellow letter must be tried in new position: {settings.onlyAllowNotTriedPositions.toString()}</li>
+                <li>Yellow letters are mandatory in new guess: {settings.allYellowLettersHaveToBeReused.toString()}</li>
+                <li>!giveup command cost: {settings.getGiveupCost} point(s)</li>
+                <li>Secret setting: {settings.getSecretSetting.toString()}</li>
               </ul>
             </div>
           </div>
         )}
 
-        {getShowDebug && (
+        {settings.getShowDebug && (
           <div>
             <div className={styles.debugMessagesTitle}>
               <h2>Debug part</h2>
@@ -1083,20 +898,19 @@ export default function Game(props) {
               updateLetterStatus={updateLetterStatus}
               updateAnswerStatus={updateAnswerStatus}
               updateMandatoryYellowLetters={updateMandatoryYellowLetters}
-              playWinSound={playWinSound}
-              playWhooshSound={playWhooshSound}
+              playWinSound={SoundUtils.playWinSound}
+              playWhooshSound={SoundUtils.playWhooshSound}
               timeoutLength={timeoutLength}
             />
           ))}
         </div>
         {!client && (
-          <EntryField addChatMessage={addChatMessage} wordLength={wordLength} />
+          <EntryField addChatMessage={addChatMessage} wordLength={settings.wordLength} />
         )}
       </div>
     </div>
   );
 }
-
 // seize: slack, sever, sends < sends should have been rejected, sever tells us 2 "e" but sends is accepted
 // haste: adieu rebar exact tapes thema theme... broken. should be fixed
 
@@ -1111,4 +925,5 @@ export default function Game(props) {
 // -allYellowLettersHaveToBeReused switch (!allyellowlettershavetobereused true/false)
 // -setcooldownduration command (!setcooldownduration value(in ms))
 // -setInvalidGuessPenalty command (!setinvalidguesspenalty value(in ms))
+// -setgiveupcost command (!updategiveupcost value(in points))
 // Added sounds depending on type of 'failure'
