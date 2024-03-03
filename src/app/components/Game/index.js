@@ -10,13 +10,13 @@ import EntryField from "../EntryField";
 import answerList from "@/app/data/5letters/solutionwords.json";
 import wordList from "@/app/data/5letters/words.json";
 import SoundUtils from "../SoundUtils";
-import { useSettings, displaySettings, difficultySettings, soundSettings } from "../Settings";
+import { timersSettings, displaySettings, difficultySettings, soundSettings } from "../Settings";
 import { parseArgs } from "util";
 
 export default function Game(props) {
   const { client } = props;
   const settings = {
-    ...useSettings(),
+    ...timersSettings(),
     ...displaySettings(),
     ...difficultySettings(),
     ...soundSettings(),
@@ -287,6 +287,9 @@ export default function Game(props) {
   // Function called when a new word is guessed
   const handleWordEntry = (chat, user, color) => {
     var giveup = getAnswer;
+    if (!settings.getShowGame) {
+      return;
+    }
     if (!chat && giveup) {
       handleWordEntry(giveup, 'Wordplop', '#B22222');
       console.log(giveup, 'Wordplop', '#B22222');
@@ -581,6 +584,16 @@ export default function Game(props) {
             }
             return;
           }
+          if (message.toLowerCase(message).startsWith('!setshowgame') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = args[1];
+            console.log(args[1]);
+            if (value === 'true' || value === 'false') {
+              settings.updateShowGame(value === 'true' ? true : false);
+              localStorage.setItem('showGame', value);
+            }
+            return;
+          }
           if (message.toLowerCase(message).startsWith('!setonlyuseavailableletters') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = args[1];
@@ -793,129 +806,132 @@ export default function Game(props) {
   }, []); // Retrieve stuff from localStorage.
 
   return (
-    <div className={styles.gameContainer}>
-      <div className={styles.leftContainer}>
+    settings.getShowGame && (
+      <div className={styles.gameContainer}>
+        
+          <div className={styles.leftContainer}>
+            {settings.getShowScoreboard ? (
+              <div className={styles.leftTopContainer}>
+                <Scoreboard getUserScores={getUserSessionScores} />
+              </div>
+            ) : (
+              <div className={styles.leftTopContainer}></div>
+            )}
 
-
-        {settings.getShowScoreboard ? (
-          <div className={styles.leftTopContainer}>
-            <Scoreboard getUserScores={getUserSessionScores} />
+            <div className={styles.leftBottomContainer}>
+              {getInvalidChatArray.slice(settings.getInvalidGuessesDisplayed).map((chatEntry, index) => (
+                <RejectionBlock
+                  key={index}
+                  word={chatEntry[0]}
+                  user={chatEntry[1]}
+                  color={chatEntry[2]}
+                  answer={getAnswer}
+                  getInvalidLetterStatus={getInvalidLetterStatus}
+                  updateInvalidLetterStatus={updateInvalidLetterStatus}
+                  updateAnswerStatus={updateAnswerStatus}
+                  invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
+                  getErrorType={getErrorType}
+                  getSecretSetting={settings.getSecretSetting}
+                  playNopeSoundM={SoundUtils.playNopeSoundM}
+                  playNopeSoundF={SoundUtils.playNopeSoundF}
+                  playFailSound={SoundUtils.playFailSound}
+                  playBsSound1={SoundUtils.playBsSound1}
+                  playBsSound2={SoundUtils.playBsSound2}
+                  playBsSound3={SoundUtils.playBsSound3}
+                  playBsSound4={SoundUtils.playBsSound4}
+                />
+              ))}
+            </div>
           </div>
-        ) : (
-          <div className={styles.leftTopContainer}></div>
-        )}
-
-        <div className={styles.leftBottomContainer}>
-          {getInvalidChatArray.slice(settings.getInvalidGuessesDisplayed).map((chatEntry, index) => (
-            <RejectionBlock
-              key={index}
-              word={chatEntry[0]}
-              user={chatEntry[1]}
-              color={chatEntry[2]}
+          <div className={styles.middleContainer}>
+            {/* <div className={styles.header}>
+              <h1>Wordplop</h1>
+              <h2>Let's make it harder, if we can...</h2>
+            </div> */}
+            <BigLetters
               answer={getAnswer}
-              getInvalidLetterStatus={getInvalidLetterStatus}
-              updateInvalidLetterStatus={updateInvalidLetterStatus}
-              updateAnswerStatus={updateAnswerStatus}
-              invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
-              getErrorType={getErrorType}
-              getSecretSetting={settings.getSecretSetting}
-              playNopeSoundM={SoundUtils.playNopeSoundM}
-              playNopeSoundF={SoundUtils.playNopeSoundF}
-              playFailSound={SoundUtils.playFailSound}
-              playBsSound1={SoundUtils.playBsSound1}
-              playBsSound2={SoundUtils.playBsSound2}
-              playBsSound3={SoundUtils.playBsSound3}
-              playBsSound4={SoundUtils.playBsSound4}
+              answerStatus={getAnswerStatus}
+              isWordFound={isWordFound}
+              playCardSound={SoundUtils.playCardSound}
             />
-          ))}
-        </div>
-      </div>
-
-      <div className={styles.middleContainer}>
-        {/* <div className={styles.header}>
-          <h1>Wordplop</h1>
-          <h2>Let's make it harder, if we can...</h2>
-        </div> */}
-        <BigLetters
-          answer={getAnswer}
-          answerStatus={getAnswerStatus}
-          isWordFound={isWordFound}
-          playCardSound={SoundUtils.playCardSound}
-        />
-        <Keyboard
-          letterStatus={getLetterStatus}
-          playPoint1Sound={SoundUtils.playPoint1Sound}
-          playPoint2Sound={SoundUtils.playPoint2Sound}
-          playPoint3Sound={SoundUtils.playPoint3Sound}
-        />
-
-        {settings.getShowSettings && (
-          <div>
-            <div className={styles.gameSettings}>
-              <h2>Game Settings</h2>
-            </div>
-            <div className={styles.settingsInfos}>
-              <ul>
-                <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
-                <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
-                <li>Only use available letters: {settings.onlyUseAvailableLetters.toString()}</li>
-                <li>Green letters must be reused in place: {settings.greenLettersHaveToBeUsedInPlace.toString()}</li>
-                <li>Yellow letter must be tried in new position: {settings.onlyAllowNotTriedPositions.toString()}</li>
-                <li>Yellow letters are mandatory in new guess: {settings.allYellowLettersHaveToBeReused.toString()}</li>
-                <li>!giveup command cost: {settings.getGiveupCost} point(s)</li>
-                <li>Secret setting: {settings.getSecretSetting.toString()}</li>
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {settings.getShowDebug && (
-          <div>
-            <div className={styles.debugMessagesTitle}>
-              <h2>Debug part</h2>
-            </div>
-            <div className={styles.debugMessages}>
-              <ul>
-                {/* Maybe make the -5 a variable at some point */}
-                {getRejectionMessages.slice(-5).map((message, index) => (
-                  <li key={index}>
-                    <span style={{ color: "white", opacity: 1, textShadow: `1px 1px 7px ${message.userColor}` }}>@{message.user}</span>: {message.word} {message.messageString}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-      </div>
-      <div className={styles.rightContainer}>
-        <div className={styles.wordBlockContainer}>
-          {getChatArray.map((chatEntry, index) => (
-            <WordBlock
-              key={index}
-              word={chatEntry[0]}
-              user={chatEntry[1]}
-              color={chatEntry[2]}
-              answer={getAnswer}
-              updateLetterStatus={updateLetterStatus}
-              updateAnswerStatus={updateAnswerStatus}
-              updateMandatoryYellowLetters={updateMandatoryYellowLetters}
-              playWinSound={SoundUtils.playWinSound}
-              playWhooshSound={SoundUtils.playWhooshSound}
-              timeoutLength={timeoutLength}
+            <Keyboard
+              letterStatus={getLetterStatus}
+              playPoint1Sound={SoundUtils.playPoint1Sound}
+              playPoint2Sound={SoundUtils.playPoint2Sound}
+              playPoint3Sound={SoundUtils.playPoint3Sound}
             />
-          ))}
-        </div>
-        {!client && (
-          <EntryField addChatMessage={addChatMessage} wordLength={settings.wordLength} />
-        )}
+
+            {settings.getShowSettings && (
+              <div>
+                <div className={styles.gameSettings}>
+                  <h2>Game Settings</h2>
+                </div>
+                <div className={styles.settingsInfos}>
+                  <ul>
+                    <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
+                    <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
+                    <li>Only use available letters: {settings.onlyUseAvailableLetters.toString()}</li>
+                    <li>Green letters must be reused in place: {settings.greenLettersHaveToBeUsedInPlace.toString()}</li>
+                    <li>Yellow letter must be tried in new position: {settings.onlyAllowNotTriedPositions.toString()}</li>
+                    <li>Yellow letters are mandatory in new guess: {settings.allYellowLettersHaveToBeReused.toString()}</li>
+                    <li>!giveup command cost: {settings.getGiveupCost} point(s)</li>
+                    <li>Secret setting: {settings.getSecretSetting.toString()}</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {settings.getShowDebug && (
+              <div>
+                <div className={styles.debugMessagesTitle}>
+                  <h2>Debug part</h2>
+                </div>
+                <div className={styles.debugMessages}>
+                  <ul>
+                    {/* Maybe make the -5 a variable at some point */}
+                    {getRejectionMessages.slice(-5).map((message, index) => (
+                      <li key={index}>
+                        <span style={{ color: "white", opacity: 1, textShadow: `1px 1px 7px ${message.userColor}` }}>@{message.user}</span>: {message.word} {message.messageString}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className={styles.rightContainer}>
+            <div className={styles.wordBlockContainer}>
+              {getChatArray.map((chatEntry, index) => (
+                <WordBlock
+                  key={index}
+                  word={chatEntry[0]}
+                  user={chatEntry[1]}
+                  color={chatEntry[2]}
+                  answer={getAnswer}
+                  updateLetterStatus={updateLetterStatus}
+                  updateAnswerStatus={updateAnswerStatus}
+                  updateMandatoryYellowLetters={updateMandatoryYellowLetters}
+                  playWinSound={SoundUtils.playWinSound}
+                  playWhooshSound={SoundUtils.playWhooshSound}
+                  timeoutLength={timeoutLength}
+                />
+              ))}
+            </div>
+            {!client && (
+              <EntryField addChatMessage={addChatMessage} wordLength={settings.wordLength} />
+            )}
+          </div>
+              
       </div>
-    </div>
+    )
+
   );
 }
 // seize: slack, sever, sends < sends should have been rejected, sever tells us 2 "e" but sends is accepted
 // haste: adieu rebar exact tapes thema theme... broken. should be fixed
 
 // Added localStorage stuff:
+// -show/hide entire game (!setshowgame true/false), game won't accept guesses when hidden too
 // -show/hide debug panel (!showdebug, !hidedebug)
 // -show/hide settings (!showsettings, !hidesettings)
 // -show/hide scoreboard (!setshowscoreboard true/false)
