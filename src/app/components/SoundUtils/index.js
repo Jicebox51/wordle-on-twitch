@@ -43,8 +43,9 @@ if (typeof window !== "undefined") {
 }
 
 export const playCardSound = (n) => {
+
   if (n === undefined) {
-    n = 5; // gotta get wordLength from Game/index.js
+    n = 5;
   } // Play the sound one time for each letter
   if (n <= 0) {
     return;
