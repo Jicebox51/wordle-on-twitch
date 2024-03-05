@@ -43,28 +43,18 @@ export default function Game(props) {
   const cooldownDurationInSeconds = settings.cooldownDuration / 1000;
   const [getInvalidGuessArray, setInvalidGuessArray] = useState([]);
 
-  // WIP PART
-  // TODO:
+  // Set the answer to a new random word from the list
+  const setAnswerAsRandomWord = () => {
+    let newWord = getAnswer;
 
-  // All time scores and temp scores would be cool
+    // Make sure it's actually a new word (don't repeat the same word twice)
+    while (newWord === getAnswer) {
+      newWord = answerList[Math.floor(Math.random() * answerList.length)];
+    }
 
-  // Make a visual to show players the state of the global cooldown
-  // Make sound to play when guess is invalid random from a list
-  // Keep thinking about a way to increase difficulty on a per user basis
-  // Different penalties based on type of mistake?
-  // Penalty could be either points removed and/or longer timeout
-  // Penalty could be increased on subsequent "mistakes"
-  // Modify settings and debug panels to be just panels and display dynamic stuff in there
-  // like settings could become last x answers on a timer then back to settings or display yet something else
-
-  // make a timer so game fade out after x (var/setting) minutes no guess done and "come back" on a guess
-  // plus a switch to enable/disable that feat.
-  // Also add !hidewordle at the same time
-
-  // if you're feeling really evil, make it exponentially increase the timeout if someone does a guess during their timeout
-
-  const [getPreviousAnswer, setPreviousAnswer] = useState('');
-  const [getDefinition, setDefinition] = useState('');
+    console.log(newWord);
+    setAnswer(newWord);
+  };
 
   const initializeRejectionMessages = () => {
     const tempRejectionMessages = [];
@@ -82,24 +72,6 @@ export default function Game(props) {
       tempDeniedYellowPositions[qwertyAlphabet[i]] = [];
     }
     setDeniedYellowPositions(tempDeniedYellowPositions);
-  };
-
-  const timeoutUser = (user, timeoutDuration) => {
-    if (!timeoutDuration) {
-      timeoutDuration = timeoutLength;
-    }
-    setTimeoutStatus((prevObject) => ({
-      ...prevObject,
-      [user]: true,
-    }));
-    // console.log('Timed out ' + user, 'for: ' + timeoutDuration);
-    setTimeout(function () {
-      setTimeoutStatus((prevObject) => ({
-        ...prevObject,
-        [user]: false,
-      }));
-      // console.log('Untimed out ' + user);
-    }, timeoutDuration);
   };
 
   // Reset the object keeping track of the answer status to all false
@@ -133,6 +105,26 @@ export default function Game(props) {
     }
 
     setInvalidLetterStatus(tempInvalidLetterStatus);
+  };
+
+  const timeoutUser = (user, timeoutDuration) => {
+    if (!timeoutDuration) {
+      timeoutDuration = timeoutLength;
+    }
+    setTimeoutStatus((prevObject) => ({
+      ...prevObject,
+      [user]: true,
+    }));
+    setTimeout(function () {
+      setTimeoutStatus((prevObject) => ({
+        ...prevObject,
+        [user]: false,
+      }));
+    }, timeoutDuration);
+  };
+
+  const isUserTimedOut = (user) => {
+    return getTimeoutStatus[user];
   };
 
   // Update the object keeping track of the status of each letter in the answer.
@@ -194,19 +186,6 @@ export default function Game(props) {
     localStorage.setItem(`allTimesScore_${user}`, newAllTimesScore.toString());
   };
 
-  // Set the answer to a new random word from the list
-  const setAnswerAsRandomWord = () => {
-    let newWord = getAnswer;
-
-    // Make sure it's actually a new word (don't repeat the same word twice)
-    while (newWord === getAnswer) {
-      newWord = answerList[Math.floor(Math.random() * answerList.length)];
-    }
-
-    console.log(newWord);
-    setAnswer(newWord);
-  };
-
   // Reset the game board (called when the word is solved)
   const reset = () => {
     setAnswerAsRandomWord();
@@ -225,10 +204,6 @@ export default function Game(props) {
     setCooldown(false);
     initializeRejectionMessages();
     initializeMandatoryYellowLetters();
-  };
-
-  const isUserTimedOut = (user) => {
-    return getTimeoutStatus[user];
   };
 
   const handleValidGuess = (word, user, color) => {
@@ -282,7 +257,7 @@ export default function Game(props) {
     addChatMessage(getAnswer, 'Wordplop', '#B22222');
   };
 
-  console.log('Mandatory letters array:', getMandatoryYellowLetters);
+  // console.log('Mandatory letters array:', getMandatoryYellowLetters);
 
   // Function called when a new word is guessed
   const handleWordEntry = (chat, user, color) => {
@@ -517,6 +492,25 @@ export default function Game(props) {
     ]);
   };
 
+  const resetSessionScores = () => {
+
+    const sessionKeys = Object.keys(localStorage).filter(key => key.startsWith('sessionScore_'));
+
+    sessionKeys.forEach(key => {
+      const user = key.replace('sessionScore_', '');
+      let newSessionScore = 0;
+      setUserSessionScores(() => ({
+        [user]: newSessionScore,
+      }));
+      localStorage.setItem(`${key}`, newSessionScore.toString());
+    });
+    reset();
+
+  };
+
+  // Make a "HandleChat" module
+  // Make a "Commands" module
+
   useEffect(() => {
     if (client) {
       client.on("message", (channel, tags, message, self) => {
@@ -539,7 +533,6 @@ export default function Game(props) {
             setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
             return;
           }
-
           if (message.toLowerCase(message) === '!reloadwordle' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             location.reload();
             return;
@@ -654,6 +647,21 @@ export default function Game(props) {
             }
             return;
           }
+          if (message.toLowerCase(message).startsWith('!resetsession') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            resetSessionScores();
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!switchscores') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = args[1];
+            if (value === 'all' || value === 'session') {
+              const result = value === 'session' ? true : false
+              settings.updateScoresView(result);
+              localStorage.setItem('getScoresView', result);
+              return;
+            } // Switch scores display, default=true(session)
+            return;
+          }
           if (message.toLowerCase(message).startsWith('!updategiveupcost') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
@@ -717,6 +725,8 @@ export default function Game(props) {
   useEffect(() => {
   }, [getMandatoryYellowLetters]);
 
+  // Make a "localStorage" module
+
   useEffect(() => {
 
     function readLocalStorage() {
@@ -776,6 +786,11 @@ export default function Game(props) {
         settings.updateInvalidGuessPenalty(JSON.parse(storedInvalidGuessPenalty));
       }
 
+      const storedGetScoresView = localStorage.getItem('getScoresView');
+      if (storedGetScoresView !== null) {
+        settings.updateScoresView(JSON.parse(storedGetScoresView));
+      }
+
     }
 
     function retrieveScoresFromLocalStorage() {
@@ -808,125 +823,160 @@ export default function Game(props) {
   return (
     settings.getShowGame && (
       <div className={styles.gameContainer}>
-        
-          <div className={styles.leftContainer}>
-            {settings.getShowScoreboard ? (
+
+        <div className={styles.leftContainer}>
+          {settings.getShowScoreboard && (
+            settings.getScoresView ? (
               <div className={styles.leftTopContainer}>
-                <Scoreboard getUserScores={getUserSessionScores} />
+                <Scoreboard
+                  getUserScores={getUserSessionScores}
+                  getScoresView={settings.getScoresView}
+                />
               </div>
             ) : (
-              <div className={styles.leftTopContainer}></div>
-            )}
-
-            <div className={styles.leftBottomContainer}>
-              {getInvalidChatArray.slice(settings.getInvalidGuessesDisplayed).map((chatEntry, index) => (
-                <RejectionBlock
-                  key={index}
-                  word={chatEntry[0]}
-                  user={chatEntry[1]}
-                  color={chatEntry[2]}
-                  answer={getAnswer}
-                  getInvalidLetterStatus={getInvalidLetterStatus}
-                  updateInvalidLetterStatus={updateInvalidLetterStatus}
-                  updateAnswerStatus={updateAnswerStatus}
-                  invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
-                  getErrorType={getErrorType}
-                  getSecretSetting={settings.getSecretSetting}
-                  playNopeSoundM={SoundUtils.playNopeSoundM}
-                  playNopeSoundF={SoundUtils.playNopeSoundF}
-                  playFailSound={SoundUtils.playFailSound}
-                  playBsSound1={SoundUtils.playBsSound1}
-                  playBsSound2={SoundUtils.playBsSound2}
-                  playBsSound3={SoundUtils.playBsSound3}
-                  playBsSound4={SoundUtils.playBsSound4}
+              <div className={styles.leftTopContainer}>
+                <Scoreboard
+                  getUserScores={getUserAllTimesScores}
+                  getScoresView={settings.getScoresView}
                 />
-              ))}
-            </div>
+              </div>
+            )
+          )}
+
+          <div className={styles.leftBottomContainer}>
+            {getInvalidChatArray.slice(settings.getInvalidGuessesDisplayed).map((chatEntry, index) => (
+              <RejectionBlock
+                key={index}
+                word={chatEntry[0]}
+                user={chatEntry[1]}
+                color={chatEntry[2]}
+                answer={getAnswer}
+                getInvalidLetterStatus={getInvalidLetterStatus}
+                updateInvalidLetterStatus={updateInvalidLetterStatus}
+                updateAnswerStatus={updateAnswerStatus}
+                invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
+                getErrorType={getErrorType}
+                getSecretSetting={settings.getSecretSetting}
+                playNopeSoundM={SoundUtils.playNopeSoundM}
+                playNopeSoundF={SoundUtils.playNopeSoundF}
+                playFailSound={SoundUtils.playFailSound}
+                playBsSound1={SoundUtils.playBsSound1}
+                playBsSound2={SoundUtils.playBsSound2}
+                playBsSound3={SoundUtils.playBsSound3}
+                playBsSound4={SoundUtils.playBsSound4}
+              />
+            ))}
           </div>
-          <div className={styles.middleContainer}>
-            {/* <div className={styles.header}>
+        </div>
+        <div className={styles.middleContainer}>
+          {/* <div className={styles.header}>
               <h1>Wordplop</h1>
               <h2>Let's make it harder, if we can...</h2>
             </div> */}
-            <BigLetters
-              answer={getAnswer}
-              answerStatus={getAnswerStatus}
-              isWordFound={isWordFound}
-              playCardSound={SoundUtils.playCardSound}
-            />
-            <Keyboard
-              letterStatus={getLetterStatus}
-              playPoint1Sound={SoundUtils.playPoint1Sound}
-              playPoint2Sound={SoundUtils.playPoint2Sound}
-              playPoint3Sound={SoundUtils.playPoint3Sound}
-            />
+          <BigLetters
+            answer={getAnswer}
+            answerStatus={getAnswerStatus}
+            isWordFound={isWordFound}
+            playCardSound={SoundUtils.playCardSound}
+          />
+          <Keyboard
+            letterStatus={getLetterStatus}
+            playPoint1Sound={SoundUtils.playPoint1Sound}
+            playPoint2Sound={SoundUtils.playPoint2Sound}
+            playPoint3Sound={SoundUtils.playPoint3Sound}
+          />
 
-            {settings.getShowSettings && (
-              <div>
-                <div className={styles.gameSettings}>
-                  <h2>Game Settings</h2>
-                </div>
-                <div className={styles.settingsInfos}>
-                  <ul>
-                    <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
-                    <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
-                    <li>Only use available letters: {settings.onlyUseAvailableLetters.toString()}</li>
-                    <li>Green letters must be reused in place: {settings.greenLettersHaveToBeUsedInPlace.toString()}</li>
-                    <li>Yellow letter must be tried in new position: {settings.onlyAllowNotTriedPositions.toString()}</li>
-                    <li>Yellow letters are mandatory in new guess: {settings.allYellowLettersHaveToBeReused.toString()}</li>
-                    <li>!giveup command cost: {settings.getGiveupCost} point(s)</li>
-                    <li>Secret setting: {settings.getSecretSetting.toString()}</li>
-                  </ul>
-                </div>
+          {settings.getShowSettings && (
+            <div>
+              <div className={styles.gameSettings}>
+                <h2>Game Settings</h2>
               </div>
-            )}
-
-            {settings.getShowDebug && (
-              <div>
-                <div className={styles.debugMessagesTitle}>
-                  <h2>Debug part</h2>
-                </div>
-                <div className={styles.debugMessages}>
-                  <ul>
-                    {/* Maybe make the -5 a variable at some point */}
-                    {getRejectionMessages.slice(-5).map((message, index) => (
-                      <li key={index}>
-                        <span style={{ color: "white", opacity: 1, textShadow: `1px 1px 7px ${message.userColor}` }}>@{message.user}</span>: {message.word} {message.messageString}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              <div className={styles.settingsInfos}>
+                <ul>
+                  <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
+                  <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
+                  <li>Only use available letters: {settings.onlyUseAvailableLetters.toString()}</li>
+                  <li>Green letters must be reused in place: {settings.greenLettersHaveToBeUsedInPlace.toString()}</li>
+                  <li>Yellow letter must be tried in new position: {settings.onlyAllowNotTriedPositions.toString()}</li>
+                  <li>Yellow letters are mandatory in new guess: {settings.allYellowLettersHaveToBeReused.toString()}</li>
+                  <li>!giveup command cost: {settings.getGiveupCost} point(s)</li>
+                  <li>Secret setting: {settings.getSecretSetting.toString()}</li>
+                </ul>
               </div>
-            )}
-          </div>
-          <div className={styles.rightContainer}>
-            <div className={styles.wordBlockContainer}>
-              {getChatArray.map((chatEntry, index) => (
-                <WordBlock
-                  key={index}
-                  word={chatEntry[0]}
-                  user={chatEntry[1]}
-                  color={chatEntry[2]}
-                  answer={getAnswer}
-                  updateLetterStatus={updateLetterStatus}
-                  updateAnswerStatus={updateAnswerStatus}
-                  updateMandatoryYellowLetters={updateMandatoryYellowLetters}
-                  playWinSound={SoundUtils.playWinSound}
-                  playWhooshSound={SoundUtils.playWhooshSound}
-                  timeoutLength={timeoutLength}
-                />
-              ))}
             </div>
-            {!client && (
-              <EntryField addChatMessage={addChatMessage} wordLength={settings.wordLength} />
-            )}
+          )}
+
+          {settings.getShowDebug && (
+            <div>
+              <div className={styles.debugMessagesTitle}>
+                <h2>Debug part</h2>
+              </div>
+              <div className={styles.debugMessages}>
+                <ul>
+                  {/* Maybe make the -5 a variable at some point */}
+                  {getRejectionMessages.slice(-5).map((message, index) => (
+                    <li key={index}>
+                      <span style={{ color: "white", opacity: 1, textShadow: `1px 1px 7px ${message.userColor}` }}>@{message.user}</span>: {message.word} {message.messageString}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className={styles.rightContainer}>
+          <div className={styles.wordBlockContainer}>
+            {getChatArray.map((chatEntry, index) => (
+              <WordBlock
+                key={index}
+                word={chatEntry[0]}
+                user={chatEntry[1]}
+                color={chatEntry[2]}
+                answer={getAnswer}
+                updateLetterStatus={updateLetterStatus}
+                updateAnswerStatus={updateAnswerStatus}
+                updateMandatoryYellowLetters={updateMandatoryYellowLetters}
+                playWinSound={SoundUtils.playWinSound}
+                playWhooshSound={SoundUtils.playWhooshSound}
+                timeoutLength={timeoutLength}
+              />
+            ))}
           </div>
-              
+          {!client && (
+            <EntryField addChatMessage={addChatMessage} wordLength={settings.wordLength} />
+          )}
+        </div>
+
       </div>
     )
 
   );
 }
+
+// WIP PART
+// TODO:
+
+// Finish session scores, need a !resetsessionscores command
+// Make a command to switch scores displayed (seesion/allTimes)
+
+// Finish the "Last answer" feat. and display its definition
+
+// const [getPreviousAnswer, setPreviousAnswer] = useState('');
+// const [getDefinition, setDefinition] = useState('');
+
+// Make a visual to show players the state of the global cooldown
+// Make sound to play when guess is invalid random from a list
+// Keep thinking about a way to increase difficulty on a per user basis
+// Different penalties based on type of mistake?
+// Penalty could be either points removed and/or longer timeout
+// Penalty could be increased on subsequent "mistakes"
+// Modify settings and debug panels to be just panels and display dynamic stuff in there
+// like settings could become last x answers on a timer then back to settings or display yet something else
+
+// make a timer so game fade out after x (var/setting) minutes no guess done and "come back" on a guess
+// plus a switch to enable/disable that feat.
+
+// if you're feeling really evil, make it exponentially increase the timeout if someone does a guess during their timeout
 // seize: slack, sever, sends < sends should have been rejected, sever tells us 2 "e" but sends is accepted
 // haste: adieu rebar exact tapes thema theme... broken. should be fixed
 
@@ -935,6 +985,7 @@ export default function Game(props) {
 // -show/hide debug panel (!showdebug, !hidedebug)
 // -show/hide settings (!showsettings, !hidesettings)
 // -show/hide scoreboard (!setshowscoreboard true/false)
+// -switch scores view (!switchscores session/all)
 // -secretSetting switch (!setsecretsetting true/false)
 // -onlyUseAvailableLetters switch (!setonlyuseavailableletters true/false)
 // -onlyAllowNotTriedPositions switch (!setonlyallownottriedpositions true/false)

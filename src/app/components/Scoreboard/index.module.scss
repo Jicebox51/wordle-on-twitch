@@ -3,6 +3,12 @@
 .scoreboardTitle {
   margin-bottom: varSize(20);
   font-size: varSize(40);
+  text-transform: uppercase;
+}
+
+.scoreboardType {
+  font-size: varSize(15);
+  opacity: 0.75;
 }
 
 .scoreboardItem {

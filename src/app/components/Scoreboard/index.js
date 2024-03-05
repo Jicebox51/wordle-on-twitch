@@ -1,7 +1,10 @@
 import styles from "./index.module.scss";
 
 function Scoreboard(props) {
-  const { getUserScores } = props;
+  const {
+    getUserScores,
+    getScoresView,
+  } = props;
 
   // Sort data by score in descending order
   const sortedScores = Object.entries(getUserScores).sort(
@@ -10,7 +13,11 @@ function Scoreboard(props) {
 
   return (
     <div>
-      <h2 className={styles.scoreboardTitle}>Scoreboard:</h2>
+      {getScoresView ? (
+        <><h3 className={styles.scoreboardType}>Session</h3><h2 className={styles.scoreboardTitle}>Scoreboard:</h2></>
+      ) : (
+        <><h3 className={styles.scoreboardType}>All Times</h3><h2 className={styles.scoreboardTitle}>Scoreboard:</h2></>
+      )}
       <ol>
         {sortedScores.map(([username, score]) => (
           <li key={username} className={styles.scoreboardItem}>

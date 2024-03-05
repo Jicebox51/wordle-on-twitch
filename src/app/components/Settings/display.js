@@ -6,8 +6,8 @@ export const displaySettings = () => {
   const [getShowScoreboard, setShowScoreboard] = useState(false);
   const [getShowSettings, setShowSettings] = useState(false);
   const [getShowDebug, setShowDebug] = useState(false);
-  // need to prevent guesses when getShowGame is false
   const [getShowGame, setShowGame] = useState(true);
+  const [getScoresView, setScoresView] = useState(true);
   // fade out feat. when no guesses for x minutes
 
   const updateInvalidGuessesDisplayed = (value) => {
@@ -26,6 +26,13 @@ export const displaySettings = () => {
   useEffect(() => {
   }, [getShowScoreboard]);
 
+  const updateScoresView = (value) => {
+    setScoresView(value);
+  };
+
+  useEffect(() => {
+  }, [getScoresView]);
+
   const updateShowGame = (value) => {
     setShowGame(value);
   };
@@ -42,6 +49,8 @@ export const displaySettings = () => {
     getInvalidGuessesDisplayed,
     updateShowScoreboard,
     getShowScoreboard,
+    updateScoresView,
+    getScoresView,
     updateShowGame,
     getShowGame,
   };
