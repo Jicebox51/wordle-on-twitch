@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./index.module.scss";
 import Scoreboard from "../Scoreboard";
 import Keyboard from "../Keyboard";
@@ -42,6 +42,61 @@ export default function Game(props) {
   const invalidGuessPenaltyInSeconds = settings.invalidGuessPenalty / 1000;
   const cooldownDurationInSeconds = settings.cooldownDuration / 1000;
   const [getInvalidGuessArray, setInvalidGuessArray] = useState([]);
+
+  const gameContainerRef = useRef(null);
+  const wsRef = useRef(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
+
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:8080/ws');
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('Game: Connected to WebSocket server');
+    };
+
+    ws.onmessage = (event) => {
+      if (event.data instanceof Blob) {
+        event.data.text().then(text => {
+          const data = JSON.parse(text);
+          if (data.type === 'requestRender') {
+            sendGameRender();
+          }
+        });
+      } else {
+        const data = JSON.parse(event.data);
+        if (data.type === 'requestRender') {
+          sendGameRender();
+        }
+      }
+    };
+    
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
+
+  const sendGameRender = () => {
+    if (gameContainerRef.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const gameHTML = gameContainerRef.current.innerHTML;
+      wsRef.current.send(JSON.stringify({
+        type: 'gameRender',
+        payload: { html: gameHTML, timestamp: Date.now() }
+      }));
+    }
+  };
+
+  useEffect(() => {
+    // Trigger update in ViewOnly component after each render
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'triggerUpdate' }));
+    }
+    setLastUpdateTime(Date.now());
+  });
+  
 
   // Set the answer to a new random word from the list
   const setAnswerAsRandomWord = () => {
@@ -822,129 +877,132 @@ export default function Game(props) {
 
   return (
     settings.getShowGame && (
-      <div className={styles.gameContainer}>
+      <div ref={gameContainerRef}>
+        <div className={styles.gameContainer}>
 
-        <div className={styles.leftContainer}>
-          {settings.getShowScoreboard && (
-            settings.getScoresView ? (
-              <div className={styles.leftTopContainer}>
-                <Scoreboard
-                  getUserScores={getUserSessionScores}
-                  getScoresView={settings.getScoresView}
-                />
-              </div>
-            ) : (
-              <div className={styles.leftTopContainer}>
-                <Scoreboard
-                  getUserScores={getUserAllTimesScores}
-                  getScoresView={settings.getScoresView}
-                />
-              </div>
-            )
-          )}
+          <div className={styles.leftContainer}>
+            {settings.getShowScoreboard && (
+              settings.getScoresView ? (
+                <div className={styles.leftTopContainer}>
+                  <Scoreboard
+                    getUserScores={getUserSessionScores}
+                    getScoresView={settings.getScoresView}
+                  />
+                </div>
+              ) : (
+                <div className={styles.leftTopContainer}>
+                  <Scoreboard
+                    getUserScores={getUserAllTimesScores}
+                    getScoresView={settings.getScoresView}
+                  />
+                </div>
+              )
+            )}
 
-          <div className={styles.leftBottomContainer}>
-            {getInvalidChatArray.slice(settings.getInvalidGuessesDisplayed).map((chatEntry, index) => (
-              <RejectionBlock
-                key={index}
-                word={chatEntry[0]}
-                user={chatEntry[1]}
-                color={chatEntry[2]}
-                answer={getAnswer}
-                getInvalidLetterStatus={getInvalidLetterStatus}
-                updateInvalidLetterStatus={updateInvalidLetterStatus}
-                updateAnswerStatus={updateAnswerStatus}
-                invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
-                getErrorType={getErrorType}
-                getSecretSetting={settings.getSecretSetting}
-                playNopeSoundM={SoundUtils.playNopeSoundM}
-                playNopeSoundF={SoundUtils.playNopeSoundF}
-                playFailSound={SoundUtils.playFailSound}
-                playBsSound1={SoundUtils.playBsSound1}
-                playBsSound2={SoundUtils.playBsSound2}
-                playBsSound3={SoundUtils.playBsSound3}
-                playBsSound4={SoundUtils.playBsSound4}
-              />
-            ))}
+            <div className={styles.leftBottomContainer}>
+              {getInvalidChatArray.slice(settings.getInvalidGuessesDisplayed).map((chatEntry, index) => (
+                <RejectionBlock
+                  key={index}
+                  word={chatEntry[0]}
+                  user={chatEntry[1]}
+                  color={chatEntry[2]}
+                  answer={getAnswer}
+                  getInvalidLetterStatus={getInvalidLetterStatus}
+                  updateInvalidLetterStatus={updateInvalidLetterStatus}
+                  updateAnswerStatus={updateAnswerStatus}
+                  invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
+                  getErrorType={getErrorType}
+                  getSecretSetting={settings.getSecretSetting}
+                  playNopeSoundM={SoundUtils.playNopeSoundM}
+                  playNopeSoundF={SoundUtils.playNopeSoundF}
+                  playFailSound={SoundUtils.playFailSound}
+                  playBsSound1={SoundUtils.playBsSound1}
+                  playBsSound2={SoundUtils.playBsSound2}
+                  playBsSound3={SoundUtils.playBsSound3}
+                  playBsSound4={SoundUtils.playBsSound4}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-        <div className={styles.middleContainer}>
-          {/* <div className={styles.header}>
+          <div className={styles.middleContainer}>
+            {/* <div className={styles.header}>
               <h1>Wordplop</h1>
               <h2>Let's make it harder, if we can...</h2>
             </div> */}
-          <BigLetters
-            answer={getAnswer}
-            answerStatus={getAnswerStatus}
-            isWordFound={isWordFound}
-            playCardSound={SoundUtils.playCardSound}
-          />
-          <Keyboard
-            letterStatus={getLetterStatus}
-            playPoint1Sound={SoundUtils.playPoint1Sound}
-            playPoint2Sound={SoundUtils.playPoint2Sound}
-            playPoint3Sound={SoundUtils.playPoint3Sound}
-          />
+            <BigLetters
+              answer={getAnswer}
+              answerStatus={getAnswerStatus}
+              isWordFound={isWordFound}
+              playCardSound={SoundUtils.playCardSound}
+            />
+            <Keyboard
+              letterStatus={getLetterStatus}
+              playPoint1Sound={SoundUtils.playPoint1Sound}
+              playPoint2Sound={SoundUtils.playPoint2Sound}
+              playPoint3Sound={SoundUtils.playPoint3Sound}
+            />
 
-          {settings.getShowSettings && (
-            <div>
-              <div className={styles.gameSettings}>
-                <h2>Game Settings</h2>
+            {settings.getShowSettings && (
+              <div>
+                <div className={styles.gameSettings}>
+                  <h2>Game Settings</h2>
+                </div>
+                <div className={styles.settingsInfos}>
+                  <ul>
+                    <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
+                    <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
+                    <li>Only use available letters: {settings.onlyUseAvailableLetters.toString()}</li>
+                    <li>Green letters must be reused in place: {settings.greenLettersHaveToBeUsedInPlace.toString()}</li>
+                    <li>Yellow letter must be tried in new position: {settings.onlyAllowNotTriedPositions.toString()}</li>
+                    <li>Yellow letters are mandatory in new guess: {settings.allYellowLettersHaveToBeReused.toString()}</li>
+                    <li>!giveup command cost: {settings.getGiveupCost} point(s)</li>
+                    <li>Secret setting: {settings.getSecretSetting.toString()}</li>
+                  </ul>
+                </div>
               </div>
-              <div className={styles.settingsInfos}>
-                <ul>
-                  <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
-                  <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
-                  <li>Only use available letters: {settings.onlyUseAvailableLetters.toString()}</li>
-                  <li>Green letters must be reused in place: {settings.greenLettersHaveToBeUsedInPlace.toString()}</li>
-                  <li>Yellow letter must be tried in new position: {settings.onlyAllowNotTriedPositions.toString()}</li>
-                  <li>Yellow letters are mandatory in new guess: {settings.allYellowLettersHaveToBeReused.toString()}</li>
-                  <li>!giveup command cost: {settings.getGiveupCost} point(s)</li>
-                  <li>Secret setting: {settings.getSecretSetting.toString()}</li>
-                </ul>
-              </div>
-            </div>
-          )}
+            )}
 
-          {settings.getShowDebug && (
-            <div>
-              <div className={styles.debugMessagesTitle}>
-                <h2>Debug part</h2>
+            {settings.getShowDebug && (
+              <div>
+                <div className={styles.debugMessagesTitle}>
+                  <h2>Debug part</h2>
+                </div>
+                <div className={styles.debugMessages}>
+                  <ul>
+                    {/* Maybe make the -5 a variable at some point */}
+                    {getRejectionMessages.slice(-5).map((message, index) => (
+                      <li key={index}>
+                        <span style={{ color: "white", opacity: 1, textShadow: `1px 1px 7px ${message.userColor}` }}>@{message.user}</span>: {message.word} {message.messageString}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-              <div className={styles.debugMessages}>
-                <ul>
-                  {/* Maybe make the -5 a variable at some point */}
-                  {getRejectionMessages.slice(-5).map((message, index) => (
-                    <li key={index}>
-                      <span style={{ color: "white", opacity: 1, textShadow: `1px 1px 7px ${message.userColor}` }}>@{message.user}</span>: {message.word} {message.messageString}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className={styles.rightContainer}>
-          <div className={styles.wordBlockContainer}>
-            {getChatArray.map((chatEntry, index) => (
-              <WordBlock
-                key={index}
-                word={chatEntry[0]}
-                user={chatEntry[1]}
-                color={chatEntry[2]}
-                answer={getAnswer}
-                updateLetterStatus={updateLetterStatus}
-                updateAnswerStatus={updateAnswerStatus}
-                updateMandatoryYellowLetters={updateMandatoryYellowLetters}
-                playWinSound={SoundUtils.playWinSound}
-                playWhooshSound={SoundUtils.playWhooshSound}
-                timeoutLength={timeoutLength}
-              />
-            ))}
+            )}
           </div>
-          {!client && (
-            <EntryField addChatMessage={addChatMessage} wordLength={settings.wordLength} />
-          )}
+          <div className={styles.rightContainer}>
+            <div className={styles.wordBlockContainer}>
+              {getChatArray.map((chatEntry, index) => (
+                <WordBlock
+                  key={index}
+                  word={chatEntry[0]}
+                  user={chatEntry[1]}
+                  color={chatEntry[2]}
+                  answer={getAnswer}
+                  updateLetterStatus={updateLetterStatus}
+                  updateAnswerStatus={updateAnswerStatus}
+                  updateMandatoryYellowLetters={updateMandatoryYellowLetters}
+                  playWinSound={SoundUtils.playWinSound}
+                  playWhooshSound={SoundUtils.playWhooshSound}
+                  timeoutLength={timeoutLength}
+                />
+              ))}
+            </div>
+            {!client && (
+              <EntryField addChatMessage={addChatMessage} wordLength={settings.wordLength} />
+            )}
+          </div>
+
         </div>
 
       </div>
@@ -956,6 +1014,7 @@ export default function Game(props) {
 // WIP PART
 // TODO:
 
+// STOP storing scores with case sensitive usernames
 // Finish session scores, need a !resetsessionscores command
 // Make a command to switch scores displayed (seesion/allTimes)
 

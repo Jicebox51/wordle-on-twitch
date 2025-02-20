@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import styles from "./page.module.scss";
 import StartingScreen from "./components/StartingScreen";
 import Game from "./components/Game";
+import ViewOnlyGame from "./components/ViewOnlyGame";
 
 export default function Home() {
   const searchParams = useSearchParams();
@@ -12,6 +13,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isViewOnly, setIsViewOnly] = useState(false);
   const tmi = require("tmi.js");
 
   const playOffline = () => {
@@ -34,6 +36,9 @@ export default function Home() {
           clearInterval(tryConnection);
           const params = new URLSearchParams(searchParams.toString());
           params.set("channel", getClient.getChannels()[0].slice(1));
+          if (isViewOnly) {
+            params.set("view", "true");
+          }
           window.history.pushState(null, "", `?${params.toString()}`);
         } else if (connectionTries >= 5) {
           clearInterval(tryConnection);
@@ -53,50 +58,64 @@ export default function Home() {
 
       tryConnection = setInterval(checkConnection, 500);
     }
-  }, [getClient]);
+  }, [getClient, isViewOnly, searchParams]);
 
   useEffect(() => {
-    if (getChannel) {
+    if (getChannel && !isViewOnly) {
       let client = new tmi.Client({
         channels: [getChannel],
       });
       setClient(client);
       client.connect();
     }
-  }, [getChannel]);
+  }, [getChannel, isViewOnly]);
 
   useEffect(() => {
-    // Parse the URL parameters to get the "channel" parameter
-    const searchParams = new URLSearchParams(location.search);
+    const searchParams = new URLSearchParams(window.location.search);
     const channelParam = searchParams.get("channel");
+    const viewParam = searchParams.get("view");
 
     if (channelParam) {
       setIsConnecting(true);
       setChannel(channelParam);
     }
+    if (viewParam === 'true') {
+      setIsViewOnly(true);
+      setIsConnected(true);  // Add this line
+      console.log("Setting view-only mode and connected state");
+    }
     setIsLoading(false);
   }, []);
 
-  return (
-    <main className={styles.main}>
-      {!isConnected ? (
-        !isConnecting ? (
-          !isLoading ? (
-            <>
-              <StartingScreen
-                changeChannel={changeChannel}
-                playOffline={playOffline}
-              />
-            </>
-          ) : (
-            <span>Loading...</span>
-          )
-        ) : (
-          <span>Connecting...</span>
-        )
-      ) : (
-        <Game client={getClient} />
-      )}
-    </main>
-  );
+  console.log("Home component state:", {
+    isConnected,
+    isConnecting,
+    isLoading,
+    isViewOnly,
+    channel: getChannel
+  });
+
+  if (isLoading) {
+    return <span>Loading...</span>;
+  }
+
+  if (isViewOnly) {
+    console.log("Rendering ViewOnlyGame");
+    return <ViewOnlyGame channel={getChannel} />;
+  }
+
+  if (!isConnected) {
+    if (isConnecting) {
+      return <span>Connecting...</span>;
+    }
+    return (
+      <StartingScreen
+        changeChannel={changeChannel}
+        playOffline={playOffline}
+      />
+    );
+  }
+
+  return <Game client={getClient} channel={getChannel} />;
 }
+
